@@ -1,0 +1,52 @@
+interface GaugeRingProps {
+  value: number | null; // 0-100, drives how much of the ring is filled
+  size?: number;
+  strokeWidth?: number;
+  color?: string;
+  trackColor?: string;
+  displayValue?: string; // overrides the centered text (defaults to `${value}`)
+  unit?: string;
+  small?: boolean;
+}
+
+export default function GaugeRing({
+  value,
+  size = 90,
+  strokeWidth = 8,
+  color = "var(--accent)",
+  trackColor = "rgba(255,255,255,0.08)",
+  displayValue,
+  unit,
+  small,
+}: GaugeRingProps) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const pct = value === null ? 0 : Math.max(0, Math.min(100, value));
+  const offset = circumference - (pct / 100) * circumference;
+  const center = size / 2;
+
+  return (
+    <div className="gauge-wrap" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={center} cy={center} r={radius} stroke={trackColor} strokeWidth={strokeWidth} fill="none" />
+        {value !== null && (
+          <circle
+            cx={center}
+            cy={center}
+            r={radius}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+          />
+        )}
+      </svg>
+      <div className="gauge-center">
+        <span className={`gauge-value ${small ? "small" : ""}`}>{displayValue ?? (value === null ? "–" : Math.round(value))}</span>
+        {unit && <span className="gauge-unit">{unit}</span>}
+      </div>
+    </div>
+  );
+}

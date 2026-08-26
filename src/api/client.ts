@@ -34,15 +34,45 @@ export interface AuditFormFiles {
 // surfaces a clear error instead of hanging indefinitely.
 const AUDIT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
+// Kicks off the Chromium-heavy checks that only need the three string
+// inputs (WCAG, GDPR, GBP screenshot) in the background on the backend,
+// ahead of CSV upload - see app/common/prewarm_jobs.py. Intended to be
+// called the moment the intake form's first screen is submitted. This is a
+// best-effort head start, not a required step: on any failure here
+// (network hiccup, backend briefly asleep) the caller should just proceed
+// without a job_id - runMasterAudit works exactly the same either way,
+// just without the pre-warmed results waiting for it.
+export async function startAuditPrewarm(fields: AuditFormFields): Promise<string | null> {
+  const form = new FormData();
+  form.append("target_url", fields.target_url);
+  if (fields.business_name) form.append("business_name", fields.business_name);
+  if (fields.target_location) form.append("target_location", fields.target_location);
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/audit-prewarm`, {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { job_id?: string };
+    return body.job_id ?? null;
+  } catch {
+    // Best-effort only - see comment above.
+    return null;
+  }
+}
+
 export async function runMasterAudit(
   fields: AuditFormFields,
   files: AuditFormFiles,
-  onElapsed?: (seconds: number) => void
+  onElapsed?: (seconds: number) => void,
+  jobId?: string | null
 ): Promise<MasterAuditResponse> {
   const form = new FormData();
   form.append("target_url", fields.target_url);
   if (fields.business_name) form.append("business_name", fields.business_name);
   if (fields.target_location) form.append("target_location", fields.target_location);
+  if (jobId) form.append("job_id", jobId);
 
   (Object.keys(files) as (keyof AuditFormFiles)[]).forEach((key) => {
     const file = files[key];

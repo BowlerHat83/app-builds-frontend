@@ -1463,6 +1463,73 @@ footer.app-footer {
   margin: 0;
 }
 
+/* ---- Two-step intake wizard (Step 1: site details, Step 2: file upload) ---- */
+
+.intake-steps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 22px;
+}
+
+.intake-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+}
+
+.intake-step.active {
+  color: var(--text-primary);
+}
+
+.intake-step.done {
+  color: var(--accent);
+}
+
+.intake-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  font-size: 11px;
+  flex: none;
+}
+
+.intake-step.active .intake-step-num {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.intake-step.done .intake-step-num {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.intake-step-divider {
+  width: 28px;
+  height: 1px;
+  background: var(--border-strong);
+  flex: none;
+}
+
+.intake-back {
+  display: inline-block;
+  margin: -10px 0 22px;
+}
+
+.link-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .guide-trigger {
   display: inline-flex;
   align-items: center;

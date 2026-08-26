@@ -5,6 +5,7 @@ import { runMasterAudit } from "../api/client";
 import { classifyFile, slotDef, SLOTS, SlotKey } from "../lib/fileClassifier";
 import { computeTopicReadiness } from "../lib/topicReadiness";
 import TopicReadinessGrid from "./TopicReadinessGrid";
+import InputGuideModal from "./layout/InputGuideModal";
 
 interface UnmatchedFile {
   id: string;
@@ -100,7 +101,10 @@ export default function UploadForm({ onResult }: UploadFormProps) {
   return (
     <div className="intake-wrap">
       <div className="card intake-card">
-        <h1 className="intake-title">Run a new SEO audit</h1>
+        <div className="intake-title-row">
+          <h1 className="intake-title">Run a new SEO audit</h1>
+          <InputGuideModal />
+        </div>
         <p className="intake-sub">
           Drop in whichever exports you have — files are matched to the right topic automatically by filename. Only the
           target URL is required; each topic reports honestly on what it couldn't compute from missing inputs.

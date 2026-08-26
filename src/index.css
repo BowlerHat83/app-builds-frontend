@@ -1448,3 +1448,256 @@ footer.app-footer {
   margin: 14px 0 0;
   max-width: 780px;
 }
+
+/* ---- Input source guide: trigger button + modal (UploadForm.tsx) ---- */
+
+.intake-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+.intake-title-row .intake-title {
+  margin: 0;
+}
+
+.guide-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  padding: 7px 14px 7px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.guide-trigger:hover,
+.guide-trigger:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.guide-trigger-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  color: var(--text-primary);
+  font-size: 10.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.guide-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 7, 15, 0.72);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+}
+
+.guide-modal {
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  max-width: 760px;
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.guide-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.guide-modal-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.guide-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guide-close:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.guide-modal-body {
+  padding: 20px 22px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.guide-block-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 10px;
+}
+
+.guide-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.guide-field {
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 13px;
+}
+
+.guide-field-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.guide-field code {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.guide-field p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.guide-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.guide-badge.required {
+  background: rgba(245, 166, 35, 0.14);
+  color: var(--accent-amber);
+}
+
+.guide-badge.optional {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-tertiary);
+}
+
+.guide-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.guide-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 560px;
+  font-size: 12.5px;
+}
+
+.guide-table thead th {
+  text-align: left;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--card-alt);
+  white-space: nowrap;
+}
+
+.guide-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+
+.guide-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.guide-table tbody td:first-child {
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.guide-table code {
+  font-size: 11.5px;
+}
+
+.guide-modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--card-alt);
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex: none;
+  flex-wrap: wrap;
+}
+
+.guide-modal-foot a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.guide-modal-foot a:hover {
+  text-decoration: underline;
+}

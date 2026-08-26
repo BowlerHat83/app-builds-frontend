@@ -20,9 +20,19 @@ export interface AuditFormFiles {
   brightlocal_csv?: File | null;
 }
 
+// The backend runs several live checks per topic (Playwright/Chromium
+// launches for WCAG, GDPR and form-detection, PageSpeed/SerpApi calls) with
+// their own server-side timeouts, but on Render's free tier a cold instance
+// or CPU contention can genuinely push a real run past those nominal
+// budgets. Without a client-side ceiling, a stuck request just spins
+// "Running full audit..." forever with zero feedback - this aborts and
+// surfaces a clear error instead of hanging indefinitely.
+const AUDIT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 export async function runMasterAudit(
   fields: AuditFormFields,
-  files: AuditFormFiles
+  files: AuditFormFiles,
+  onElapsed?: (seconds: number) => void
 ): Promise<MasterAuditResponse> {
   const form = new FormData();
   form.append("target_url", fields.target_url);
@@ -34,10 +44,33 @@ export async function runMasterAudit(
     if (file) form.append(key, file);
   });
 
-  const res = await fetch(`${API_BASE_URL}/audit-master`, {
-    method: "POST",
-    body: form,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AUDIT_TIMEOUT_MS);
+  const startedAt = Date.now();
+  const tickId = onElapsed
+    ? setInterval(() => onElapsed(Math.round((Date.now() - startedAt) / 1000)), 1000)
+    : undefined;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}/audit-master`, {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(
+        `Audit timed out after ${Math.round(AUDIT_TIMEOUT_MS / 1000)}s. The target site may be slow to ` +
+          "crawl, or the backend (Render free tier) may be under load - try again, or test against a " +
+          "smaller/faster site first."
+      );
+    }
+    throw new Error(`Could not reach the audit backend: ${err instanceof Error ? err.message : String(err)}`);
+  } finally {
+    clearTimeout(timeoutId);
+    if (tickId) clearInterval(tickId);
+  }
 
   if (!res.ok) {
     let detail = res.statusText;

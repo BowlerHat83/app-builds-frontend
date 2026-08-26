@@ -21,6 +21,7 @@ export default function UploadForm({ onResult }: UploadFormProps) {
   const [unmatched, setUnmatched] = useState<UnmatchedFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,8 +83,9 @@ export default function UploadForm({ onResult }: UploadFormProps) {
     }
     setError(null);
     setLoading(true);
+    setElapsedSeconds(0);
     try {
-      const result = await runMasterAudit(fields, files);
+      const result = await runMasterAudit(fields, files, setElapsedSeconds);
       onResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong running the audit.");
@@ -210,10 +212,13 @@ export default function UploadForm({ onResult }: UploadFormProps) {
             <div className="intake-actions">
               <button type="submit" className="btn btn-primary" disabled={loading}>
                 {loading && <span className="spinner" />}
-                {loading ? "Running full audit… this can take a minute" : "Run full audit"}
+                {loading
+                  ? `Running full audit… ${elapsedSeconds}s elapsed${elapsedSeconds > 60 ? " (live checks can take a few minutes on a cold backend)" : ""}`
+                  : "Run full audit"}
               </button>
               <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-                Usually takes under a minute — you'll land straight on the results dashboard.
+                Usually finishes in a minute or two — can run longer the first time the backend
+                wakes up from idle.
               </span>
             </div>
           </div>

@@ -8,6 +8,7 @@ import {
   scoreTopic2,
   scoreTopic3,
   scoreTopic4,
+  scoreTopic5,
   scoreTopic6,
   scoreTopic7,
   gradeFromScore,
@@ -125,7 +126,12 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
     {
       tabKey: "topic5",
       title: "Topic 5: Paid Visibility",
-      score: null,
+      // Not a "good/bad" score like the other topics (see scoring.ts) -
+      // this reflects how much substantive PPC data actually came back,
+      // so a thin result (few keywords, no real spend signal) shows as a
+      // low score instead of a blank gauge, and no data at all still
+      // reads as N/A.
+      score: scoreTopic5(results).score,
       rows: [
         { label: "No. of Terms", value: fmtInt(t5.keywords?.total_keywords) },
         { label: "Est. Monthly Spend", value: t5.keywords ? fmtCurrencyGBP(t5.keywords.estimated_monthly_spend) : "–" },

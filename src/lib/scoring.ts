@@ -3,7 +3,11 @@
 // "topic score" for most topics, so this is clearly a derived estimate, not
 // raw API data. Any topic where the underlying numbers don't support a
 // meaningful good/bad direction (Topic 5: more paid spend isn't inherently
-// good or bad) is left out of the composite rather than guessed.
+// good or bad) is left out of the composite rather than guessed. Topic 5
+// still gets its own scoreTopic5() below for its card on the overview grid
+// - that one measures how much substantive PPC data actually came back
+// (not whether the spend is "good"), so a handful of keywords with no real
+// spend behind them reads as a low score rather than a blank one.
 
 import type { MasterAuditResults } from "../types/audit";
 
@@ -75,6 +79,42 @@ export function scoreTopic7(results: MasterAuditResults): TopicScore {
   const pct = results.topic7_content_quality?.data?.thin_content_analysis?.thin_content_percentage;
   if (pct === undefined || pct === null) return { score: null, label: "Onpage Content Quality" };
   return { score: clamp(100 - pct), label: "Onpage Content Quality" };
+}
+
+// Deliberately not a "good/bad" score - see the file header. This measures
+// how much substantive paid-search data the audit actually turned up: real
+// keyword coverage, a real spend/CPC signal, and real competitor coverage.
+// No data at all (both blocks null/absent) is "No data" (N/A on the card).
+// Data that came back thin - a few keywords with no spend or CPC behind
+// them - scores low rather than showing blank, since that's a genuinely
+// weak result, not a missing one.
+export function scoreTopic5(results: MasterAuditResults): TopicScore {
+  const data = results.topic5_paid_visibility?.data;
+  const kw = data?.keywords;
+  const comp = data?.competitor_share;
+  if (!kw && !comp) return { score: null, label: "No data" };
+
+  const parts: number[] = [];
+
+  if (kw) {
+    // 20+ tracked keywords is treated as strong coverage; scales down
+    // linearly from there rather than requiring an arbitrary "good" count.
+    parts.push(clamp(((kw.total_keywords ?? 0) / 20) * 100));
+    // Whether real budget/CPC data came back at all - not whether the
+    // figure itself is high or low, since spend level isn't a quality
+    // signal, only its presence is.
+    const hasSpendSignal = (kw.estimated_monthly_spend ?? 0) > 0 || (kw.average_cpc ?? 0) > 0;
+    parts.push(hasSpendSignal ? 100 : 0);
+  }
+
+  if (comp) {
+    // 5+ competitors analyzed is treated as strong coverage, same scaling
+    // logic as keyword coverage above.
+    parts.push(clamp(((comp.total_competitors_analyzed ?? 0) / 5) * 100));
+  }
+
+  const score = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
+  return { score, label: "Paid Data Completeness" };
 }
 
 export interface CompositeScore {

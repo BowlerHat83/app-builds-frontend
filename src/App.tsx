@@ -11,7 +11,7 @@ import Topic4AIVisibility from "./pages/Topic4AIVisibility";
 import Topic5Paid from "./pages/Topic5Paid";
 import Topic6Local from "./pages/Topic6Local";
 import Topic7Content from "./pages/Topic7Content";
-import { pollAuditStatus } from "./api/client";
+import { pollAuditStatus, AuditJobNotFoundError } from "./api/client";
 import type { MasterAuditResponse } from "./types/audit";
 
 // How often to poll GET /audit-status/:job_id while any topic is still
@@ -48,11 +48,18 @@ const TABS: TabDef[] = [
 export default function App() {
   const [audit, setAudit] = useState<MasterAuditResponse | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
+  // Surfaces the state of the poll loop itself when something's wrong:
+  // terminal: true means the job is gone for good (backend restart lost
+  // it - see AuditJobNotFoundError) and polling has stopped; terminal:
+  // false means a single poll failed and it's retrying automatically.
+  // Cleared on every successful poll and on starting a new audit.
+  const [pollNotice, setPollNotice] = useState<{ message: string; terminal: boolean } | null>(null);
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleResult = (result: MasterAuditResponse) => {
     setAudit(result);
     setActiveTab("overview");
+    setPollNotice(null);
   };
 
   // Polls the job/polling flow's status endpoint every few seconds while
@@ -76,16 +83,29 @@ export default function App() {
         const next = await pollAuditStatus(jobId);
         if (cancelled) return;
         setAudit(next);
+        setPollNotice(null);
         if (!next.complete) {
           pollTimeoutRef.current = setTimeout(tick, POLL_INTERVAL_MS);
         }
-      } catch {
-        // A single failed poll (network hiccup, backend briefly asleep) is
-        // not fatal - keep whatever results are already on screen and just
-        // try again on the next tick rather than losing progress.
-        if (!cancelled) {
-          pollTimeoutRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof AuditJobNotFoundError) {
+          // Terminal - this job_id will never come back, so retrying is
+          // pointless. Stop the loop and tell the user plainly rather than
+          // silently hammering a 404 forever; whatever topics already
+          // completed stay exactly as shown.
+          setPollNotice({ message: err.message, terminal: true });
+          return;
         }
+        // A single failed poll (network hiccup, backend briefly under
+        // load) isn't fatal - keep whatever results are already on screen,
+        // surface a small non-blocking notice so it's not a silent retry
+        // loop, and try again on the next tick.
+        setPollNotice({
+          message: err instanceof Error ? err.message : "The last status check failed - retrying automatically…",
+          terminal: false,
+        });
+        pollTimeoutRef.current = setTimeout(tick, POLL_INTERVAL_MS);
       }
     };
 
@@ -136,7 +156,9 @@ export default function App() {
               <span className="brand-sub">
                 {audit.target_url}
                 {audit.job_id && !audit.complete
-                  ? ` · ${countCompletedTopics(audit)}/${TOPIC_RESULT_KEYS.length} topics complete`
+                  ? ` · ${countCompletedTopics(audit)}/${TOPIC_RESULT_KEYS.length} topics complete${
+                      pollNotice?.terminal ? " (stalled)" : ""
+                    }`
                   : ""}
               </span>
             )}
@@ -150,6 +172,12 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {pollNotice && (
+          <div className={`status-banner ${pollNotice.terminal ? "error" : "warn"}`} style={{ margin: "14px 0" }}>
+            {pollNotice.message}
+          </div>
+        )}
 
         {!audit ? (
           <UploadForm onResult={handleResult} />

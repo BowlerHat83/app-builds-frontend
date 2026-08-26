@@ -167,13 +167,28 @@ export async function startAuditJob(fields: AuditFormFields, files: AuditFormFil
   return (await res.json()) as MasterAuditResponse;
 }
 
+// Thrown specifically for a 404 on /audit-status - the job_id is unknown
+// to the backend right now. On Render's free tier this is almost always a
+// process restart mid-audit (an OOM kill from Chromium/Playwright memory
+// use, or a redeploy) wiping the in-memory job store, not a transient
+// network hiccup - the job is genuinely gone and will never come back, so
+// callers should treat this as terminal (stop polling) rather than retry
+// it like any other failed request.
+export class AuditJobNotFoundError extends Error {}
+
 // Single cheap poll of a running job's current state - never holds a
 // request open, just reads whichever topics have finished so far. Throws
-// on a genuine network/HTTP failure so the caller's poll loop can decide
-// how to react; a 404 means the job_id is unknown or has expired (backend
-// restarted, or the job is over an hour old).
+// AuditJobNotFoundError on a 404 (see above) so the caller can distinguish
+// "this job is gone for good" from an ordinary transient failure, and a
+// plain Error for any other network/HTTP failure.
 export async function pollAuditStatus(jobId: string): Promise<MasterAuditResponse> {
   const res = await fetch(`${API_BASE_URL}/audit-status/${encodeURIComponent(jobId)}`);
+
+  if (res.status === 404) {
+    throw new AuditJobNotFoundError(
+      "Lost track of this audit job - the backend most likely restarted mid-run (Render's free tier can crash-restart under memory pressure, which wipes its in-memory job store). The results already shown above are everything that was captured before that happened."
+    );
+  }
 
   if (!res.ok) {
     let detail = res.statusText;

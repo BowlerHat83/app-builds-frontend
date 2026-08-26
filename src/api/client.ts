@@ -1,6 +1,11 @@
 import type { MasterAuditResponse } from "../types/audit";
 
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
+// .trim() guards against a stray trailing newline/space in whatever set
+// VITE_API_BASE_URL (e.g. pasted into a multi-line env var box) - an
+// embedded control character makes the URL invalid and fetch() fails with
+// a bare "Failed to fetch", silently, before any network request is even
+// attempted - easy to lose an hour to since nothing shows up server-side.
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").trim().replace(/\/$/, "");
 
 export interface AuditFormFields {
   target_url: string;
@@ -61,12 +66,18 @@ export async function runMasterAudit(
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       throw new Error(
-        `Audit timed out after ${Math.round(AUDIT_TIMEOUT_MS / 1000)}s. The target site may be slow to ` +
-          "crawl, or the backend (Render free tier) may be under load - try again, or test against a " +
-          "smaller/faster site first."
+        `Audit timed out after ${Math.round(AUDIT_TIMEOUT_MS / 1000)}s (target: ${API_BASE_URL}). The target ` +
+          "site may be slow to crawl, or the backend (Render free tier) may be under load - try again, or " +
+          "test against a smaller/faster site first."
       );
     }
-    throw new Error(`Could not reach the audit backend: ${err instanceof Error ? err.message : String(err)}`);
+    // Includes the actual configured API_BASE_URL in the message - a wrong/
+    // malformed VITE_API_BASE_URL is the single most common cause of a bare
+    // "Failed to fetch" here, and this makes it visible without needing
+    // DevTools to go dig for it.
+    throw new Error(
+      `Could not reach the audit backend at ${API_BASE_URL}: ${err instanceof Error ? err.message : String(err)}`
+    );
   } finally {
     clearTimeout(timeoutId);
     if (tickId) clearInterval(tickId);

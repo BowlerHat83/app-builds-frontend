@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import TopNav, { TabDef } from "./components/layout/TopNav";
 import BrandLockup from "./components/layout/BrandLockup";
 import DownloadMenu from "./components/layout/DownloadMenu";
@@ -11,7 +11,28 @@ import Topic4AIVisibility from "./pages/Topic4AIVisibility";
 import Topic5Paid from "./pages/Topic5Paid";
 import Topic6Local from "./pages/Topic6Local";
 import Topic7Content from "./pages/Topic7Content";
+import { pollAuditStatus } from "./api/client";
 import type { MasterAuditResponse } from "./types/audit";
+
+// How often to poll GET /audit-status/:job_id while any topic is still
+// "pending". 4s is frequent enough that topics visibly fill in one at a
+// time without feeling stuck, without hammering a Render free-tier
+// instance that's also busy running the actual audit checks.
+const POLL_INTERVAL_MS = 4000;
+
+const TOPIC_RESULT_KEYS = [
+  "topic1_technical",
+  "topic2_performance",
+  "topic3_organic_visibility",
+  "topic4_ai_visibility",
+  "topic5_paid_visibility",
+  "topic6_local_visibility",
+  "topic7_content_quality",
+] as const;
+
+function countCompletedTopics(audit: MasterAuditResponse): number {
+  return TOPIC_RESULT_KEYS.filter((key) => audit.master_audit_results[key]?.status !== "pending").length;
+}
 
 const TABS: TabDef[] = [
   { key: "overview", label: "Overview Summary" },
@@ -27,11 +48,57 @@ const TABS: TabDef[] = [
 export default function App() {
   const [audit, setAudit] = useState<MasterAuditResponse | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleResult = (result: MasterAuditResponse) => {
     setAudit(result);
     setActiveTab("overview");
   };
+
+  // Polls the job/polling flow's status endpoint every few seconds while
+  // any topic is still "pending", updating the overview/topic tabs live as
+  // each one finishes - this is what lets results appear topic by topic
+  // instead of only once the whole audit is done. Self-schedules its own
+  // next tick rather than using setInterval, so a slow poll can never stack
+  // up overlapping requests. Stops on its own once the backend reports
+  // complete: true, and is a no-op for a response with no job_id (e.g. if
+  // audit is ever set some other way in future).
+  useEffect(() => {
+    const jobId = audit?.job_id;
+    if (!jobId || audit?.complete) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const tick = async () => {
+      try {
+        const next = await pollAuditStatus(jobId);
+        if (cancelled) return;
+        setAudit(next);
+        if (!next.complete) {
+          pollTimeoutRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+        }
+      } catch {
+        // A single failed poll (network hiccup, backend briefly asleep) is
+        // not fatal - keep whatever results are already on screen and just
+        // try again on the next tick rather than losing progress.
+        if (!cancelled) {
+          pollTimeoutRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+        }
+      }
+    };
+
+    pollTimeoutRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      if (pollTimeoutRef.current) {
+        clearTimeout(pollTimeoutRef.current);
+        pollTimeoutRef.current = null;
+      }
+    };
+  }, [audit?.job_id, audit?.complete]);
 
   const renderTab = () => {
     if (!audit) return null;
@@ -65,7 +132,14 @@ export default function App() {
         <div className="top-bar">
           <div className="brand">
             <BrandLockup />
-            {audit && <span className="brand-sub">{audit.target_url}</span>}
+            {audit && (
+              <span className="brand-sub">
+                {audit.target_url}
+                {audit.job_id && !audit.complete
+                  ? ` · ${countCompletedTopics(audit)}/${TOPIC_RESULT_KEYS.length} topics complete`
+                  : ""}
+              </span>
+            )}
           </div>
           {audit && (
             <div style={{ display: "flex", gap: 10 }}>

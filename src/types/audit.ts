@@ -4,7 +4,7 @@
 // too - the UI is written to show "Not available" rather than assume a field
 // is always present.
 
-export type EnvelopeStatus = "success" | "partial" | "error";
+export type EnvelopeStatus = "success" | "partial" | "error" | "pending";
 
 export interface Envelope<T> {
   status: EnvelopeStatus;
@@ -526,4 +526,10 @@ export interface MasterAuditResponse {
   target_url: string;
   provided_inputs: Record<string, string>;
   master_audit_results: MasterAuditResults;
+  // Present when this response came from the job/polling flow
+  // (/audit-start, /audit-status/:job_id) rather than the older single-
+  // request /audit-master. job_id is what to poll; complete is true once
+  // every topic has finished (no "pending" envelopes left).
+  job_id?: string;
+  complete?: boolean;
 }

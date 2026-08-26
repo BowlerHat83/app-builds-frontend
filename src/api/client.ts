@@ -127,6 +127,68 @@ export async function runMasterAudit(
   return (await res.json()) as MasterAuditResponse;
 }
 
+// Full job/polling flow (see app/common/audit_jobs.py on the backend):
+// kicks off all 7 topics as independent background tasks and returns
+// immediately with a job_id plus an initial mostly-"pending" status. This
+// call never waits on Chromium or any other slow check, so unlike
+// runMasterAudit() above it can never itself hit a gateway timeout no
+// matter how long the audit as a whole takes to finish. Poll
+// pollAuditStatus(jobId) every few seconds afterwards to watch each topic
+// fill in as it completes.
+export async function startAuditJob(fields: AuditFormFields, files: AuditFormFiles): Promise<MasterAuditResponse> {
+  const form = new FormData();
+  form.append("target_url", fields.target_url);
+  if (fields.business_name) form.append("business_name", fields.business_name);
+  if (fields.target_location) form.append("target_location", fields.target_location);
+
+  (Object.keys(files) as (keyof AuditFormFiles)[]).forEach((key) => {
+    const file = files[key];
+    if (file) form.append(key, file);
+  });
+
+  const res = await fetch(`${API_BASE_URL}/audit-start`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = await res.json();
+      detail = body.detail ? JSON.stringify(body.detail) : detail;
+    } catch {
+      // ignore - keep statusText
+    }
+    throw new Error(
+      `Could not start the audit (${res.status}): ${detail}. Check the backend URL (${API_BASE_URL}) is correct and the backend is awake.`
+    );
+  }
+
+  return (await res.json()) as MasterAuditResponse;
+}
+
+// Single cheap poll of a running job's current state - never holds a
+// request open, just reads whichever topics have finished so far. Throws
+// on a genuine network/HTTP failure so the caller's poll loop can decide
+// how to react; a 404 means the job_id is unknown or has expired (backend
+// restarted, or the job is over an hour old).
+export async function pollAuditStatus(jobId: string): Promise<MasterAuditResponse> {
+  const res = await fetch(`${API_BASE_URL}/audit-status/${encodeURIComponent(jobId)}`);
+
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = await res.json();
+      detail = body.detail ? JSON.stringify(body.detail) : detail;
+    } catch {
+      // ignore - keep statusText
+    }
+    throw new Error(`Could not check audit status (${res.status}): ${detail}`);
+  }
+
+  return (await res.json()) as MasterAuditResponse;
+}
+
 // Resolves a relative_path the backend returns (e.g. "/static/screenshots/x.png")
 // into a full URL against the configured API base, since the frontend and API
 // are served from different origins.

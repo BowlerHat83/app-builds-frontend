@@ -83,6 +83,7 @@ export default function Topic7Content({ envelope }: { envelope: Envelope<Topic7D
           )
         }
       >
+        {thin?.note && <p className="note-text" style={{ marginTop: 0, marginBottom: 14 }}>{thin.note}</p>}
         <DataTable columns={thinColumns} rows={visibleRows} emptyMessage="No thin-content pages found" maxHeight={expanded ? 480 : undefined} />
       </Card>
 

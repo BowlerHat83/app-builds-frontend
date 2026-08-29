@@ -4,6 +4,7 @@ import Badge from "../components/ui/Badge";
 import Tip from "../components/ui/Tip";
 import DataTable, { Column } from "../components/ui/DataTable";
 import { fmtInt, fmtPercent, fmtDash } from "../lib/format";
+import DistributionBar from "../components/charts/DistributionBar";
 import { resolveAssetUrl } from "../api/client";
 import type { MapPackKeywordRow } from "../types/audit";
 import ZoomableImage from "../components/ui/ZoomableImage";
@@ -22,7 +23,14 @@ export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Dat
       key: "pos",
       header: "Map Pack Position",
       align: "right",
-      render: (r) => (r.found ? <Badge tone="good">#{r.map_pack_position}</Badge> : <Badge tone="neutral">Not in pack</Badge>),
+      render: (r) =>
+        r.in_map_pack ? (
+          <Badge tone="good">#{r.local_pack_position}</Badge>
+        ) : r.found ? (
+          <Badge tone="warn">#{r.local_pack_position} (local results, not in the 3-pack)</Badge>
+        ) : (
+          <Badge tone="neutral">Not found</Badge>
+        ),
     },
   ];
 
@@ -30,15 +38,23 @@ export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Dat
     <div className="stack">
       {envelope.warnings.length > 0 && <div className="status-banner warn">{envelope.warnings.join(" · ")}</div>}
 
-      <div className="grid grid-3">
+      <div className="grid grid-4">
         <div className="stat-card">
           <span className="stat-card-label">
             NAP Consistency
-            <Tip text="How consistently the business Name, Address and Phone number appear across citation listings. Inconsistent NAP data can hurt local rankings." />
+            <Tip text="How consistently the business Name, Address and Phone number appear across citation listings that actually have NAP data captured. Inconsistent NAP data can hurt local rankings." />
           </span>
           <span className="stat-card-value">{citations ? fmtPercent(citations.nap_consistency_score) : "–"}</span>
-          <span className="stat-card-sub">{fmtInt(citations?.active_citations)} active of {fmtInt(citations?.total_citations)} citations</span>
+          <span className="stat-card-sub">{fmtInt(citations?.nap_consistency_sample_size)} of {fmtInt(citations?.active_citations)} active citations had NAP data to check</span>
           {citations?.nap_consistency_note && <span className="stat-card-sub" style={{ color: "var(--accent-amber)" }}>{citations.nap_consistency_note}</span>}
+        </div>
+        <div className="stat-card">
+          <span className="stat-card-label">
+            Citation Breakdown
+            <Tip text="How this export's rows split between live citations, duplicates BrightLocal flagged, and unclaimed 'Potential' listings not yet counted as citations." />
+          </span>
+          <span className="stat-card-value">{fmtInt(citations?.total_citations)}</span>
+          <span className="stat-card-sub">{fmtInt(citations?.duplicate_citations)} duplicate · {fmtInt(citations?.potential_citation_opportunities)} potential opportunities</span>
         </div>
         <div className="stat-card">
           <span className="stat-card-label">
@@ -46,6 +62,9 @@ export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Dat
             <Tip text="Citations from higher domain-authority directories and sites, which typically carry more local-ranking weight." />
           </span>
           <span className="stat-card-value">{fmtInt(citations?.high_authority_citations)}</span>
+          {citations?.high_authority_opportunities != null && citations.high_authority_opportunities > 0 && (
+            <span className="stat-card-sub">+{fmtInt(citations.high_authority_opportunities)} more among the potential opportunities</span>
+          )}
         </div>
         <div className="stat-card">
           <span className="stat-card-label">
@@ -53,7 +72,10 @@ export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Dat
             <Tip text="Average position in Google's local 3-pack across all tracked keywords — branded and, where available, unbranded terms from Organic, AI and PPC." />
           </span>
           <span className="stat-card-value">{fmtDash(mapPack?.average_map_pack_position)}</span>
-          <span className="stat-card-sub">{fmtInt(mapPack?.keywords_in_map_pack)} of {fmtInt(mapPack?.total_keywords_tracked)} keywords tracked</span>
+          <span className="stat-card-sub">{fmtInt(mapPack?.keywords_in_map_pack)} of {fmtInt(mapPack?.total_keywords_tracked)} keywords in the 3-pack</span>
+          {mapPack?.keywords_found_in_local_results != null && mapPack.keywords_found_in_local_results > (mapPack.keywords_in_map_pack ?? 0) && (
+            <span className="stat-card-sub">{fmtInt(mapPack.keywords_found_in_local_results)} found in local results overall (avg pos {fmtDash(mapPack.average_local_search_position)})</span>
+          )}
         </div>
       </div>
 
@@ -102,6 +124,24 @@ export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Dat
             </span>
           </div>
         </div>
+        {reviews?.rating_distribution && (
+          <div style={{ marginBottom: 20 }}>
+            <p className="section-label" style={{ marginBottom: 8 }}>
+              Rating Distribution
+              <Tip text="Star ratings across the reviews this API call actually returned — see reviews_sampled below, this isn't necessarily the listing's entire review history." />
+            </p>
+            <DistributionBar
+              segments={[5, 4, 3, 2, 1].map((star) => ({
+                label: `${star}★`,
+                value: reviews.rating_distribution?.[String(star)] ?? 0,
+                color: star >= 4 ? "var(--accent)" : star === 3 ? "var(--accent-amber)" : "var(--accent-red)",
+              }))}
+            />
+            {reviews.reviews_sampled != null && (
+              <p className="note-text">Based on the {fmtInt(reviews.reviews_sampled)} most recent reviews returned by the API.</p>
+            )}
+          </div>
+        )}
         <p className="section-label">Top Reviews</p>
         {reviews?.top_reviews && reviews.top_reviews.length > 0 ? (
           <div className="grid grid-2">

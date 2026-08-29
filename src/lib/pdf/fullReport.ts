@@ -240,7 +240,15 @@ export async function generateFullReportPdf(audit: MasterAuditResponse): Promise
   );
   y = drawSubLabel(doc, "Map Pack Keyword Breakdown", y);
   if (t6.map_pack?.keyword_breakdown?.length) {
-    y = drawTable(doc, y, ["Keyword", "Map Pack Position"], t6.map_pack.keyword_breakdown.map((k) => [k.keyword, k.found ? `#${k.map_pack_position}` : "Not in pack"]));
+    y = drawTable(
+      doc,
+      y,
+      ["Keyword", "Map Pack Position"],
+      t6.map_pack.keyword_breakdown.map((k) => [
+        k.keyword,
+        k.in_map_pack ? `#${k.local_pack_position}` : k.found ? `#${k.local_pack_position} (local results, not in 3-pack)` : "Not found",
+      ])
+    );
   } else {
     y = drawEmptyNote(doc, "No map-pack data available.", y);
   }

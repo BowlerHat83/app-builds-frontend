@@ -15,10 +15,19 @@ export interface Envelope<T> {
 
 // ---------- Topic 1: Technical, Security & Standards ----------
 
+export interface SitemapFreshness {
+  pages_with_lastmod: number;
+  pages_without_lastmod: number;
+  most_recent_lastmod: string | null;
+  oldest_lastmod: string | null;
+  pages_stale_over_1y: number | null;
+}
+
 export interface SitemapCheck {
   found: boolean;
   sitemap_url?: string | null;
   url_count?: number | null;
+  freshness?: SitemapFreshness | null;
 }
 
 export interface SSLCertificate {
@@ -36,9 +45,18 @@ export interface SSLCertificate {
   error?: string | null;
 }
 
+export interface HtmlValidationErrorRow {
+  line: number | null;
+  column: number | null;
+  message: string;
+  error_type: string;
+}
+
 export interface HtmlSyntax {
   is_valid: boolean;
   total_errors: number;
+  errors: HtmlValidationErrorRow[];
+  errors_truncated: boolean;
 }
 
 export interface WcagIssue {
@@ -119,6 +137,13 @@ export interface CoreWebVitalsDiagnostics {
   run_warnings?: string[];
 }
 
+export interface LighthouseOpportunity {
+  id: string;
+  label: string;
+  estimated_savings_ms: number;
+  display_value: string | null;
+}
+
 export interface CoreWebVitals {
   performance_score: number | null;
   lcp_ms: number | null;
@@ -129,6 +154,7 @@ export interface CoreWebVitals {
   inp_ms: number | null;
   inp_note?: string;
   source?: string;
+  opportunities?: LighthouseOpportunity[];
   diagnostics?: CoreWebVitalsDiagnostics;
 }
 
@@ -347,6 +373,11 @@ export interface TopSearchTermRow {
   occurrences: number;
 }
 
+export interface FactsOverview {
+  status_breakdown: Record<string, number> | null;
+  date_range: { earliest: string; latest: string; dated_rows: number; total_rows: number } | null;
+}
+
 export interface Topic4Data {
   topic: string;
   engine_visibility: { status: string; engine_visibility_breakdown: EngineVisibilityRow[] } | null;
@@ -355,6 +386,7 @@ export interface Topic4Data {
   top_search_terms: { status: string; top_search_terms: TopSearchTermRow[] } | null;
   top_urls: { status: string; top_brand_sources: AIBrandSource[] } | null;
   top_target_urls: TopTargetUrlsBlock | null;
+  facts_overview: FactsOverview | null;
   summary: {
     engine_visibility_ratio: string;
     cited_urls_count: number;
@@ -400,15 +432,20 @@ export interface Topic5Data {
 export interface CitationsBlock {
   total_citations: number;
   active_citations: number;
+  duplicate_citations: number;
+  potential_citation_opportunities: number;
   high_authority_citations: number;
+  high_authority_opportunities: number;
   nap_consistency_score: number | null;
+  nap_consistency_sample_size: number;
   nap_consistency_note?: string | null;
   nap_consistency_columns_checked?: string[];
 }
 
 export interface MapPackKeywordRow {
   keyword: string;
-  map_pack_position: number | null;
+  local_pack_position: number | null;
+  in_map_pack: boolean;
   found: boolean;
   note?: string;
   error?: string;
@@ -418,9 +455,15 @@ export interface MapPackBlock {
   business_name: string;
   location: string;
   data_source: string;
+  // "map pack" = Google's real top-3 widget only (in_map_pack above) - a
+  // business found deeper in local results (e.g. position 15) no longer
+  // counts here, see keywords_found_in_local_results/
+  // average_local_search_position for that wider context instead.
   average_map_pack_position: number | null;
   total_keywords_tracked: number;
   keywords_in_map_pack: number;
+  keywords_found_in_local_results: number;
+  average_local_search_position: number | null;
   keyword_breakdown: MapPackKeywordRow[];
 }
 
@@ -441,6 +484,12 @@ export interface ReviewsBlock {
   error?: string;
   gbp_metrics: { total_reviews: number; average_rating: number; rating_stars: string } | null;
   top_reviews: TopReview[];
+  // Distribution across whatever this SerpApi response actually returned
+  // (reviews_sampled), not necessarily the listing's entire review history
+  // (gbp_metrics.total_reviews) - see reviews_sampled for the real count
+  // this distribution is built from.
+  rating_distribution?: Record<string, number>;
+  reviews_sampled?: number;
 }
 
 export interface ProfileScreenshotBlock {
@@ -475,9 +524,10 @@ export interface ThinContentPage {
 
 export interface ThinContentAnalysis {
   total_pages_analyzed: number;
-  thin_content_page_count: number;
-  thin_content_percentage: number;
+  thin_content_page_count: number | null;
+  thin_content_percentage: number | null;
   page_details: ThinContentPage[];
+  note?: string | null;
 }
 
 export interface UniqueForm {

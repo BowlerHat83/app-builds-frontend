@@ -177,17 +177,28 @@ export function gradeFromScore(score: number | null): { grade: string; color: st
   return { grade: "F", color: "var(--accent-red)" };
 }
 
+// Per the owner's own formula: every topic's score added together, divided
+// by 7 (a fixed denominator - not however many topics happen to have data
+// yet), to get the composite percentage. This deliberately differs from a
+// plain average of whatever's scoreable: a topic with no data at all - no
+// CSV uploaded, nothing to compute from - contributes 0 rather than being
+// skipped, so an audit that's missing inputs reads as genuinely incomplete
+// instead of quietly averaging only the topics that happened to have data.
+// Topic 5 is included as one of the 7 even though its score measures data
+// completeness rather than a "good/bad" direction (see scoreTopic5 above) -
+// a deliberate choice to use all 7 topics evenly, not an oversight.
 export function computeCompositeScore(results: MasterAuditResults): CompositeScore {
   const scores = [
     scoreTopic1(results).score,
     scoreTopic2(results).score,
     scoreTopic3(results).score,
     scoreTopic4(results).score,
+    scoreTopic5(results).score,
     scoreTopic6(results).score,
     scoreTopic7(results).score,
   ];
-  const score = average(scores);
-  const rounded = score !== null ? Math.round(score) : null;
+  const total = scores.reduce((sum: number, s) => sum + (s ?? 0), 0);
+  const rounded = Math.round(total / 7);
   const { grade, color } = gradeFromScore(rounded);
   return { score: rounded, grade, gradeColor: color };
 }

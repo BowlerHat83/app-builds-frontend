@@ -182,20 +182,35 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
           <div className="score-block">
             <div className="score-item">
               <span className="score-item-label">Composite Grade</span>
-              <span className="grade-pill" style={{ color: composite.gradeColor, background: "transparent", borderColor: composite.gradeColor }}>
-                {composite.grade}
+              <span
+                className="grade-pill"
+                style={{
+                  color: audit.complete !== false ? composite.gradeColor : "var(--text-tertiary)",
+                  background: "transparent",
+                  borderColor: audit.complete !== false ? composite.gradeColor : "var(--border-strong)",
+                }}
+              >
+                {audit.complete !== false ? composite.grade : "–"}
               </span>
             </div>
             <div className="score-item">
               <span className="score-item-label">Composite Score</span>
-              <span className="score-item-value">{composite.score !== null ? `${composite.score}%` : "–"}</span>
+              <span className="score-item-value">{audit.complete !== false ? `${composite.score}%` : "–"}</span>
             </div>
           </div>
         </div>
         <p className="note-text">
-          The composite grade/score above is calculated in the browser from the real metrics in each topic below
-          (WCAG &amp; GDPR scores, Lighthouse performance score, keyword rankings, AI citation ratio, NAP/reviews/map-pack
-          data, and thin-content rate) — it isn't a number the API returns directly.
+          {audit.complete !== false ? (
+            <>
+              The composite grade/score above is calculated in the browser: every topic's score (0–100, Topic 5's
+              reflecting data completeness rather than a good/bad direction — see its tab) added together and
+              divided by 7 — a topic with no data at all contributes 0 rather than being skipped, so a composite
+              held down by missing inputs reads as genuinely incomplete rather than an inflated average of just the
+              topics that had data. It isn't a number the API returns directly.
+            </>
+          ) : (
+            "Composite grade/score will show once every topic has finished — showing it mid-run would count still-loading topics as 0 and misread as a real quality drop."
+          )}
         </p>
         {audit.complete !== false ? (
           <p className="overview-summary-text">{insightParagraph}</p>

@@ -6,7 +6,7 @@ import Tip from "../components/ui/Tip";
 import DataTable, { Column } from "../components/ui/DataTable";
 import DistributionBar from "../components/charts/DistributionBar";
 import { fmtInt, truncate, hostnameOf } from "../lib/format";
-import type { WcagIssue, CookieDetected } from "../types/audit";
+import type { WcagIssue, CookieDetected, HtmlValidationErrorRow } from "../types/audit";
 
 export default function Topic1Accessibility({ envelope }: { envelope: Envelope<Topic1Data> }) {
   const d = envelope.data;
@@ -29,6 +29,13 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
     },
     { key: "occurrences", header: "Count", align: "right", render: (r) => fmtInt(r.occurrences ?? 1) },
     { key: "element", header: "Element", render: (r) => <span className="cell-mono cell-muted">{truncate(r.element, 70)}</span> },
+  ];
+
+  const htmlErrorColumns: Column<HtmlValidationErrorRow>[] = [
+    { key: "line", header: "Line", align: "right", render: (r) => (r.line != null ? fmtInt(r.line) : "–") },
+    { key: "column", header: "Col", align: "right", render: (r) => (r.column != null ? fmtInt(r.column) : "–") },
+    { key: "error_type", header: "Type", render: (r) => <span className="cell-mono cell-muted">{r.error_type}</span> },
+    { key: "message", header: "Message", render: (r) => truncate(r.message, 110) },
   ];
 
   const targetHost = hostnameOf(d.target_url);
@@ -90,6 +97,15 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
             </div>
             <span className="stat-card-value">{sitemap?.url_count != null ? `${fmtInt(sitemap.url_count)} URLs` : "–"}</span>
             {sitemap?.sitemap_url && <span className="stat-card-sub">{sitemap.sitemap_url}</span>}
+            {sitemap?.freshness && (
+              <span className="stat-card-sub">
+                {fmtInt(sitemap.freshness.pages_with_lastmod)} of {fmtInt((sitemap.freshness.pages_with_lastmod ?? 0) + (sitemap.freshness.pages_without_lastmod ?? 0))} URLs carry a &lt;lastmod&gt; date
+                {sitemap.freshness.most_recent_lastmod && <>, newest {sitemap.freshness.most_recent_lastmod}</>}
+                {sitemap.freshness.pages_stale_over_1y != null && sitemap.freshness.pages_stale_over_1y > 0 && (
+                  <>, {fmtInt(sitemap.freshness.pages_stale_over_1y)} not updated in over a year</>
+                )}
+              </span>
+            )}
           </div>
           <div className="stat-card">
             <div className="stat-card-row">
@@ -114,6 +130,15 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
           </div>
         </div>
       </Card>
+
+      {html && html.errors.length > 0 && (
+        <Card sectionLabel="HTML Validation Errors">
+          <DataTable columns={htmlErrorColumns} rows={html.errors} emptyMessage="No HTML validation errors" maxHeight={260} />
+          {html.errors_truncated && (
+            <p className="note-text">Showing the first {fmtInt(html.errors.length)} errors — this page has more than that; only {fmtInt(html.errors.length)} are listed here.</p>
+          )}
+        </Card>
+      )}
 
       <Card
         sectionLabel="WCAG Accessibility Issues"

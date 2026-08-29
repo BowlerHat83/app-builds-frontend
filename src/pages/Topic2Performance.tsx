@@ -93,6 +93,22 @@ function CoreWebVitalsPanel({ cwv, label }: { cwv: CoreWebVitals | null | undefi
           />
         </div>
       </div>
+      {cwv?.opportunities && cwv.opportunities.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <p className="section-label" style={{ marginBottom: 8 }}>
+            Optimization Opportunities
+            <Tip text="Extra Lighthouse audits beyond the headline Core Web Vitals — concrete, zero-guesswork fixes ranked by estimated load-time savings." />
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {cwv.opportunities.map((o) => (
+              <div key={o.id} className="form-card-row">
+                <span>{o.label}</span>
+                <b>{o.display_value ?? fmtMs(o.estimated_savings_ms)}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {cwv?.inp_note && <p className="note-text">{cwv.inp_note}</p>}
     </Card>
   );

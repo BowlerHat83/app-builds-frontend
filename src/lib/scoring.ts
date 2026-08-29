@@ -177,39 +177,32 @@ export function gradeFromScore(score: number | null): { grade: string; color: st
   return { grade: "F", color: "var(--accent-red)" };
 }
 
-// Per the owner's own formula: every topic's score added together, divided
-// by 7 (a fixed denominator - not however many topics happen to have data
-// yet), to get the composite percentage. This deliberately differs from a
-// plain average of whatever's scoreable: a topic with no data at all - no
-// CSV uploaded, nothing to compute from - contributes 0 rather than being
-// skipped, so an audit that's missing inputs reads as genuinely incomplete
-// instead of quietly averaging only the topics that happened to have data.
-// Topic 5 is included as one of the 7 even though its score measures data
-// completeness rather than a "good/bad" direction (see scoreTopic5 above) -
-// a deliberate choice to use all 7 topics evenly, not an oversight.
-//
-// Topic 4 (AI Visibility) is a deliberate carve-out from that rule: the
-// owner isn't currently able to reliably supply AI-visibility data and has
-// chosen not to submit it for some audits, so an absent Topic 4 is a known
-// gap in the input, not a real deficiency the audited business should be
-// marked down for. When Topic 4 has no data, it's dropped from both the
-// sum and the denominator entirely - neither zeroed nor counted - so the
-// composite is the other 6 topics summed and divided by 6, and it resumes
-// counting as the 7th of 7 automatically the moment real AI-visibility
-// data is supplied again.
+// A topic with no real data behind it (score === null, i.e. "N/A") is not
+// the same thing as a topic that scored 0 - it's an absent input, not a
+// zero result, and shouldn't be able to drag the composite down just
+// because a CSV wasn't uploaded for that run. So this is a plain average
+// of whichever topics actually have a score: each null is dropped from
+// both the sum and the denominator entirely (never counted, never
+// zeroed), and the denominator shrinks to match. A topic resumes counting
+// as soon as it has real data again - nothing here is topic-specific.
+// Topic 5 is included on the same footing as the rest even though its
+// score measures data completeness rather than a "good/bad" direction
+// (see scoreTopic5 above) - when it has data it counts like any other
+// topic; when it doesn't, it's excluded like any other topic.
+// If literally every topic is N/A, the composite itself is null (shown as
+// "-") rather than a misleading 0%.
 export function computeCompositeScore(results: MasterAuditResults): CompositeScore {
-  const topic4Score = scoreTopic4(results).score;
-  const alwaysWeighted = [
+  const scores = [
     scoreTopic1(results).score,
     scoreTopic2(results).score,
     scoreTopic3(results).score,
+    scoreTopic4(results).score,
     scoreTopic5(results).score,
     scoreTopic6(results).score,
     scoreTopic7(results).score,
   ];
-  const total = alwaysWeighted.reduce((sum: number, s) => sum + (s ?? 0), 0) + (topic4Score ?? 0);
-  const denominator = topic4Score !== null ? 7 : 6;
-  const rounded = Math.round(total / denominator);
+  const present = scores.filter((s): s is number => s !== null);
+  const rounded = present.length ? Math.round(present.reduce((a, b) => a + b, 0) / present.length) : null;
   const { grade, color } = gradeFromScore(rounded);
   return { score: rounded, grade, gradeColor: color };
 }

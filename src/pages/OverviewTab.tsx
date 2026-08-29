@@ -55,16 +55,22 @@ function buildInsightParagraph(results: MasterAuditResults): string {
   const t4 = results.topic4_ai_visibility.data;
   const t5 = results.topic5_paid_visibility.data;
   const t6 = results.topic6_local_visibility.data;
+  const aiVisibilityMissing = !t4.engine_visibility;
   if (!t3.backlinks_summary && !t3.top_keywords) missing.push("Organic Visibility (Ahrefs)");
-  if (!t4.engine_visibility) missing.push("AI Visibility");
+  if (aiVisibilityMissing) missing.push("AI Visibility");
   if (!t5.keywords && !t5.competitor_share) missing.push("Paid Visibility (PPC)");
   if (!t6.citations) missing.push("Local citations (BrightLocal)");
+
+  const permanentExclusionNote = ' Paid Visibility (Topic 5) is always excluded from the composite score itself, since ad spend has no inherent "good" direction.';
+  const aiExclusionNote = aiVisibilityMissing
+    ? " AI Visibility wasn't supplied for this audit, so it's also excluded from the composite score entirely (not counted as a 0) rather than skewing it with unreliable or absent data — it'll count again once real AI-visibility data is supplied."
+    : "";
 
   const omission = missing.length
     ? ` ${missing.join(", ")} ${missing.length === 1 ? "wasn't" : "weren't"} supplied for this audit, so ${
         missing.length === 1 ? "it's" : "they're"
-      } shown with partial or no data on ${missing.length === 1 ? "its" : "their"} tab${missing.length === 1 ? "" : "s"} below. Paid Visibility (Topic 5) is also always excluded from the composite score itself, since ad spend has no inherent "good" direction.`
-    : ' Paid Visibility (Topic 5) is excluded from the composite score itself, since ad spend has no inherent "good" direction.';
+      } shown with partial or no data on ${missing.length === 1 ? "its" : "their"} tab${missing.length === 1 ? "" : "s"} below.${permanentExclusionNote}${aiExclusionNote}`
+    : `${permanentExclusionNote}${aiExclusionNote}`;
 
   return `This composite reflects only the topics with real data behind them.${strengthsWeaknesses}${omission}`;
 }
@@ -206,7 +212,10 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
               reflecting data completeness rather than a good/bad direction — see its tab) added together and
               divided by 7 — a topic with no data at all contributes 0 rather than being skipped, so a composite
               held down by missing inputs reads as genuinely incomplete rather than an inflated average of just the
-              topics that had data. It isn't a number the API returns directly.
+              topics that had data. The one exception is Topic 4 (AI Visibility): when it has no data, it's dropped
+              from both the total and the denominator instead of contributing a 0, since its data isn't reliably
+              available right now and shouldn't be held against the score. It isn't a number the API returns
+              directly.
             </>
           ) : (
             "Composite grade/score will show once every topic has finished — showing it mid-run would count still-loading topics as 0 and misread as a real quality drop."

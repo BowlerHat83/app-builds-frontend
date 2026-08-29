@@ -3,9 +3,10 @@ import type { AuditFormFields, AuditFormFiles } from "../api/client";
 import type { MasterAuditResponse } from "../types/audit";
 import { startAuditJob } from "../api/client";
 import { classifyFile, slotDef, SLOTS, SlotKey } from "../lib/fileClassifier";
-import { computeTopicReadiness } from "../lib/topicReadiness";
+import { computeTopicReadiness, computeMissingFileInputs } from "../lib/topicReadiness";
 import TopicReadinessGrid from "./TopicReadinessGrid";
 import InputGuideModal from "./layout/InputGuideModal";
+import MissingInputsModal from "./MissingInputsModal";
 
 interface UnmatchedFile {
   id: string;
@@ -23,6 +24,7 @@ export default function UploadForm({ onResult }: UploadFormProps) {
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showMissingModal, setShowMissingModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const updateField = (key: keyof AuditFormFields, value: string) => {
@@ -75,12 +77,10 @@ export default function UploadForm({ onResult }: UploadFormProps) {
     setUnmatched((prev) => prev.filter((u) => u.id !== id));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fields.target_url.trim()) {
-      setError("Target URL is required.");
-      return;
-    }
+  // The actual submission - pulled out of handleSubmit so both the direct
+  // path (nothing missing) and the "Proceed to audit" button on the
+  // missing-inputs popup can call the same thing.
+  const runAudit = async () => {
     setError(null);
     setLoading(true);
     try {
@@ -96,6 +96,27 @@ export default function UploadForm({ onResult }: UploadFormProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fields.target_url.trim()) {
+      setError("Target URL is required.");
+      return;
+    }
+    // Give the owner one last checkpoint before the audit locks in, if any
+    // topic's CSVs are incomplete - rather than let them discover the gap
+    // only after the results come back.
+    if (computeMissingFileInputs(files).length > 0) {
+      setShowMissingModal(true);
+      return;
+    }
+    await runAudit();
+  };
+
+  const handleProceedAnyway = () => {
+    setShowMissingModal(false);
+    void runAudit();
   };
 
   const readiness = computeTopicReadiness(fields, files);
@@ -230,6 +251,14 @@ export default function UploadForm({ onResult }: UploadFormProps) {
           </div>
         </form>
       </div>
+
+      {showMissingModal && (
+        <MissingInputsModal
+          missing={computeMissingFileInputs(files)}
+          onProceed={handleProceedAnyway}
+          onReturn={() => setShowMissingModal(false)}
+        />
+      )}
     </div>
   );
 }

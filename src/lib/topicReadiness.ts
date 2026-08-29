@@ -40,3 +40,27 @@ export function computeTopicReadiness(fields: AuditFormFields, files: AuditFormF
     return { key: topic.key, label: topic.label, parts, metCount, totalCount: parts.length };
   });
 }
+
+
+export interface MissingTopicInputs {
+  key: string;
+  label: string;
+  missingFiles: string[];
+}
+
+// Used by the launch-confirmation popup - separate from computeTopicReadiness
+// above because that also tracks the live-check (target URL) part, which is
+// always satisfied by the time this is checked (the form already blocks
+// submission without a URL). This only reports missing CSV slots, grouped
+// by the topic(s) each one feeds, so the popup can say exactly what's
+// absent rather than a vague "some data is missing".
+export function computeMissingFileInputs(files: AuditFormFiles): MissingTopicInputs[] {
+  return TOPIC_DEFS.filter((topic) => topic.fileSlots.length > 0)
+    .map((topic) => {
+      const missingFiles = topic.fileSlots
+        .filter((slotKey) => !files[slotKey])
+        .map((slotKey) => SLOTS.find((s) => s.key === slotKey)?.label ?? slotKey);
+      return { key: topic.key, label: topic.label, missingFiles };
+    })
+    .filter((topic) => topic.missingFiles.length > 0);
+}

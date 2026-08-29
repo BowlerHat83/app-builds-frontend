@@ -403,6 +403,7 @@ export interface CitationsBlock {
   high_authority_citations: number;
   nap_consistency_score: number | null;
   nap_consistency_note?: string | null;
+  nap_consistency_columns_checked?: string[];
 }
 
 export interface MapPackKeywordRow {

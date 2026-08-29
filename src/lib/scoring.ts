@@ -42,7 +42,10 @@ export function scoreTopic1(results: MasterAuditResults): TopicScore {
 }
 
 export function scoreTopic2(results: MasterAuditResults): TopicScore {
-  const cwv = results.topic2_performance?.data?.core_web_vitals;
+  // Scored off the mobile run specifically (Google's own mobile-first
+  // convention) - the desktop run is still shown in full on the Topic 2
+  // tab, it just isn't the figure that drives the composite.
+  const cwv = results.topic2_performance?.data?.core_web_vitals?.mobile;
   const score = cwv?.performance_score ?? null;
   return { score, label: "Performance" };
 }
@@ -56,12 +59,53 @@ export function scoreTopic3(results: MasterAuditResults): TopicScore {
   return { score, label: "Organic Visibility" };
 }
 
+// Being cited across all 4 tracked engines is a useful signal, but on its
+// own it only says "an engine mentioned the domain somewhere" - it doesn't
+// say whether that's one thin mention or a real pattern, so it isn't
+// allowed to be the sole determinant of this score. Three signals are
+// averaged instead: (a) engine-visibility ratio itself, (b) depth - how
+// many actual citation rows the target's own pages picked up, not just
+// whether they were mentioned once, and (c) breadth - how many distinct
+// real search prompts actually surfaced the site. Each signal uses
+// `!== undefined` rather than `??` so a genuine 0 from a block that DID run
+// (e.g. the facts CSV parsed fine but no prompts matched) still counts as a
+// real, low score - only a block that never ran at all (no CSV uploaded,
+// no target_url to scope to) is excluded from the average entirely.
 export function scoreTopic4(results: MasterAuditResults): TopicScore {
-  const ratio = results.topic4_ai_visibility?.data?.summary?.engine_visibility_ratio;
-  if (!ratio) return { score: null, label: "AI Visibility" };
-  const [num, den] = ratio.split("/").map((n) => parseFloat(n));
-  if (!den) return { score: null, label: "AI Visibility" };
-  return { score: clamp((num / den) * 100), label: "AI Visibility" };
+  const data = results.topic4_ai_visibility?.data;
+  if (!data) return { score: null, label: "AI Visibility" };
+
+  const parts: (number | null)[] = [];
+
+  const ratio = data.summary?.engine_visibility_ratio;
+  if (ratio) {
+    const [num, den] = ratio.split("/").map((n) => parseFloat(n));
+    parts.push(den ? clamp((num / den) * 100) : null);
+  } else {
+    parts.push(null);
+  }
+
+  const targetUrls = data.top_target_urls;
+  if (targetUrls && targetUrls.total_citation_rows !== undefined) {
+    // 10+ citation rows against the target's own pages is treated as
+    // strong depth; scales down linearly from there.
+    parts.push(clamp((targetUrls.total_citation_rows / 10) * 100));
+  } else {
+    parts.push(null);
+  }
+
+  const searchTerms = data.top_search_terms;
+  if (searchTerms && searchTerms.top_search_terms !== undefined) {
+    // Capped at the top 10 prompts returned, so this maxes out once 10
+    // distinct real prompts surfaced the site rather than requiring an
+    // arbitrarily larger count.
+    parts.push(clamp((searchTerms.top_search_terms.length / 10) * 100));
+  } else {
+    parts.push(null);
+  }
+
+  const score = average(parts);
+  return { score: score !== null ? clamp(score) : null, label: "AI Visibility" };
 }
 
 export function scoreTopic6(results: MasterAuditResults): TopicScore {

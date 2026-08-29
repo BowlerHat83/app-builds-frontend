@@ -6,6 +6,7 @@ import Tip from "../components/ui/Tip";
 import DataTable, { Column } from "../components/ui/DataTable";
 import { fmtInt, fmtPercent, truncate } from "../lib/format";
 import { resolveAssetUrl } from "../api/client";
+import ZoomableImage from "../components/ui/ZoomableImage";
 
 export default function Topic7Content({ envelope }: { envelope: Envelope<Topic7Data> }) {
   const d = envelope.data;
@@ -48,7 +49,7 @@ export default function Topic7Content({ envelope }: { envelope: Envelope<Topic7D
         <div className="stat-card">
           <span className="stat-card-label">
             Avg Inputs per Form
-            <Tip text="Average number of input fields (text, select, textarea, etc) per unique form — a rough proxy for how much friction each form asks of a visitor." />
+            <Tip text="Average number of input fields (text, select, textarea, etc) per unique form — a rough proxy for how much friction each form asks of a visitor. Hidden inputs (CSRF tokens, tracking params) are excluded, since a real visitor never sees or fills those in." />
           </span>
           <span className="stat-card-value">{avgInputsPerForm != null ? avgInputsPerForm.toFixed(1) : "–"}</span>
         </div>
@@ -96,7 +97,7 @@ export default function Topic7Content({ envelope }: { envelope: Envelope<Topic7D
                 <div key={f.form_id} className="form-card">
                   <div className="form-card-shot">
                     {shotUrl && visual?.status === "captured" ? (
-                      <img src={shotUrl} alt={`Form ${f.form_id} screenshot`} />
+                      <ZoomableImage src={shotUrl} alt={`Form ${f.form_id} screenshot`} />
                     ) : (
                       <span className="placeholder">
                         {visual?.status === "hidden_on_load"

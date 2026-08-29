@@ -168,10 +168,15 @@ export interface MetadataAnalysis {
   description_distribution: LengthDistribution | null;
 }
 
+export interface CoreWebVitalsByStrategy {
+  mobile: CoreWebVitals | null;
+  desktop: CoreWebVitals | null;
+}
+
 export interface Topic2Data {
   topic: string;
   target_url: string;
-  core_web_vitals: CoreWebVitals | null;
+  core_web_vitals: CoreWebVitalsByStrategy | null;
   core_web_vitals_note?: string | null;
   tech_metrics: TechMetrics | null;
   metadata_analysis: MetadataAnalysis | null;
@@ -332,8 +337,14 @@ export interface TopTargetUrlsBlock {
   status: string;
   target_domain: string;
   total_citation_rows: number;
+  total_distinct_urls: number;
   top_target_urls: TopTargetUrlRow[];
   methodology_note?: string;
+}
+
+export interface TopSearchTermRow {
+  prompt: string;
+  occurrences: number;
 }
 
 export interface Topic4Data {
@@ -341,6 +352,7 @@ export interface Topic4Data {
   engine_visibility: { status: string; engine_visibility_breakdown: EngineVisibilityRow[] } | null;
   top_competitors: { status: string; top_competitors: AICompetitorRow[] } | null;
   top_keywords: { status: string; top_keywords: AIKeywordRow[] } | null;
+  top_search_terms: { status: string; top_search_terms: TopSearchTermRow[] } | null;
   top_urls: { status: string; top_brand_sources: AIBrandSource[] } | null;
   top_target_urls: TopTargetUrlsBlock | null;
   summary: {
@@ -389,7 +401,8 @@ export interface CitationsBlock {
   total_citations: number;
   active_citations: number;
   high_authority_citations: number;
-  nap_consistency_score: number;
+  nap_consistency_score: number | null;
+  nap_consistency_note?: string | null;
 }
 
 export interface MapPackKeywordRow {

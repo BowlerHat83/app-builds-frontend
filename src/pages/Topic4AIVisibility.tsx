@@ -1,4 +1,4 @@
-import type { Envelope, Topic4Data, AIKeywordRow, TopTargetUrlRow } from "../types/audit";
+import type { Envelope, Topic4Data, TopSearchTermRow, TopTargetUrlRow } from "../types/audit";
 import Card from "../components/ui/Card";
 import Tip from "../components/ui/Tip";
 import DataTable, { Column } from "../components/ui/DataTable";
@@ -10,9 +10,9 @@ export default function Topic4AIVisibility({ envelope }: { envelope: Envelope<To
   const engines = d.engine_visibility?.engine_visibility_breakdown ?? [];
   const ratio = d.summary?.engine_visibility_ratio;
 
-  const keywordColumns: Column<AIKeywordRow>[] = [
-    { key: "keyword", header: "Search Term", render: (r) => r.keyword },
-    { key: "occ", header: "Visibility", align: "right", render: (r) => fmtInt(r.occurrences) },
+  const searchTermColumns: Column<TopSearchTermRow>[] = [
+    { key: "prompt", header: "Search Prompt", render: (r) => r.prompt },
+    { key: "occ", header: "Occurrences", align: "right", render: (r) => fmtInt(r.occurrences) },
   ];
 
   const targetUrlColumns: Column<TopTargetUrlRow>[] = [
@@ -28,6 +28,7 @@ export default function Topic4AIVisibility({ envelope }: { envelope: Envelope<To
   const competitorPie = (d.top_competitors?.top_competitors ?? []).slice(0, 8).map((c) => ({ label: c.domain, value: c.citations }));
 
   const targetUrls = d.top_target_urls;
+  const searchTerms = d.top_search_terms;
 
   return (
     <div className="stack">
@@ -62,14 +63,25 @@ export default function Topic4AIVisibility({ envelope }: { envelope: Envelope<To
       <div className="two-col">
         <Card
           sectionLabel="Top Visible Search Terms"
-          right={<Tip text="Prompts/topics where the site's content was surfaced by an AI engine. These aren't attributable to a single page, so they can't be scoped to one domain the way page citations can." />}
+          right={<Tip text="The actual long-form prompts people (or AI engines standing in for them) put to each AI model — not root-word topics — ranked by how often that exact prompt recurred, capped to the top 10." />}
         >
-          <DataTable columns={keywordColumns} rows={d.top_keywords?.top_keywords ?? []} maxHeight={300} />
+          <DataTable
+            columns={searchTermColumns}
+            rows={searchTerms?.top_search_terms ?? []}
+            maxHeight={300}
+            emptyMessage={searchTerms ? "No prompts found in the facts export" : "No data available"}
+          />
         </Card>
         <Card
           sectionLabel="Top Cited Pages"
           right={<Tip text="The target domain's own individual pages, ranked by how many times each was cited by an AI engine — competitor and third-party sources are excluded." />}
         >
+          {targetUrls && (
+            <p className="note-text" style={{ marginTop: 0, marginBottom: 12 }}>
+              {fmtInt(targetUrls.total_distinct_urls)} distinct page{targetUrls.total_distinct_urls === 1 ? "" : "s"} on this domain cited, across{" "}
+              {fmtInt(targetUrls.total_citation_rows)} citation row{targetUrls.total_citation_rows === 1 ? "" : "s"} in the sources export.
+            </p>
+          )}
           <DataTable
             columns={targetUrlColumns}
             rows={targetUrls?.top_target_urls ?? []}

@@ -3,6 +3,7 @@ import Card from "../components/ui/Card";
 import DataTable, { Column } from "../components/ui/DataTable";
 import Tip from "../components/ui/Tip";
 import PieChart from "../components/charts/PieChart";
+import BarChart from "../components/charts/BarChart";
 import LineChart from "../components/charts/LineChart";
 import { fmtInt, fmtPercent, fmtDash } from "../lib/format";
 
@@ -97,11 +98,9 @@ export default function Topic3Organic({ envelope }: { envelope: Envelope<Topic3D
 
       <Card
         sectionLabel={`Competitor Share Breakdown${dr ? ` · Avg competitor DR ${fmtInt(dr.metrics?.average_competitor_dr)}` : ""}`}
-        right={<Tip text="Share of overlapping keyword rankings held by each competitor domain — a bigger slice means they compete for more of the same search terms." />}
+        right={<Tip text="For each competitor domain, the percentage of the target's tracked keywords that competitor also ranks for — a longer bar means they overlap with (and compete for) more of the same search terms." />}
       >
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <PieChart data={marketSharePie} valueFormatter={(v) => fmtPercent(v, 1)} />
-        </div>
+        <BarChart data={marketSharePie} valueFormatter={(v) => fmtPercent(v, 1)} />
       </Card>
 
       <Card

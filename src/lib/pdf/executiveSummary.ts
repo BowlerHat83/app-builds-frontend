@@ -79,8 +79,9 @@ export async function generateExecutiveSummaryPdf(audit: MasterAuditResponse): P
       title: "Topic 2 — Performance",
       score: scoreTopic2(results).score,
       stats: [
-        { label: "Performance Score", value: t2.core_web_vitals?.performance_score != null ? `${t2.core_web_vitals.performance_score}/100` : "N/A" },
-        { label: "LCP", value: t2.core_web_vitals?.lcp_ms != null ? `${(t2.core_web_vitals.lcp_ms / 1000).toFixed(1)}s` : "–" },
+        { label: "Performance Score (Mobile)", value: t2.core_web_vitals?.mobile?.performance_score != null ? `${t2.core_web_vitals.mobile.performance_score}/100` : "N/A" },
+        { label: "Performance Score (Desktop)", value: t2.core_web_vitals?.desktop?.performance_score != null ? `${t2.core_web_vitals.desktop.performance_score}/100` : "N/A" },
+        { label: "LCP (Mobile)", value: t2.core_web_vitals?.mobile?.lcp_ms != null ? `${(t2.core_web_vitals.mobile.lcp_ms / 1000).toFixed(1)}s` : "–" },
         { label: "Indexation Errors", value: fmtInt(t2.metadata_analysis?.indexation_errors_count) },
         { label: "Missing H1s", value: fmtInt(t2.metadata_analysis?.meta_counts?.missing_h1) },
       ],

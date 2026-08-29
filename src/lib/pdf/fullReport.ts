@@ -74,12 +74,15 @@ export async function generateFullReportPdf(audit: MasterAuditResponse): Promise
   y = PAGE.margin;
   const t2 = r.topic2_performance.data;
   y = drawSectionTitle(doc, "Topic 2: Performance", y);
-  const cwv = t2.core_web_vitals;
+  const cwvMobile = t2.core_web_vitals?.mobile;
+  const cwvDesktop = t2.core_web_vitals?.desktop;
   const perfStats: StatItem[] = [
-    { label: "Performance Score", value: cwv?.performance_score != null ? `${cwv.performance_score}/100` : "N/A" },
-    { label: "LCP", value: fmtMs(cwv?.lcp_ms ?? null) },
-    { label: "CLS", value: cwv?.cls != null ? cwv.cls.toFixed(3) : "–" },
-    { label: "Total Blocking Time", value: fmtMs(cwv?.total_blocking_time_ms ?? null) },
+    { label: "Performance Score (Mobile)", value: cwvMobile?.performance_score != null ? `${cwvMobile.performance_score}/100` : "N/A" },
+    { label: "Performance Score (Desktop)", value: cwvDesktop?.performance_score != null ? `${cwvDesktop.performance_score}/100` : "N/A" },
+    { label: "LCP (Mobile)", value: fmtMs(cwvMobile?.lcp_ms ?? null) },
+    { label: "LCP (Desktop)", value: fmtMs(cwvDesktop?.lcp_ms ?? null) },
+    { label: "CLS (Mobile)", value: cwvMobile?.cls != null ? cwvMobile.cls.toFixed(3) : "–" },
+    { label: "Total Blocking Time (Mobile)", value: fmtMs(cwvMobile?.total_blocking_time_ms ?? null) },
     { label: "Page Size", value: t2.tech_metrics?.page_size_kb != null ? `${t2.tech_metrics.page_size_kb} KB` : "–" },
     { label: "Load Time", value: fmtMs(t2.tech_metrics?.load_time_ms ?? null) },
     { label: "Status Code", value: fmtDash(t2.tech_metrics?.status_code) },

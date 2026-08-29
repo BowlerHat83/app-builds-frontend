@@ -6,6 +6,7 @@ import DataTable, { Column } from "../components/ui/DataTable";
 import { fmtInt, fmtPercent, fmtDash } from "../lib/format";
 import { resolveAssetUrl } from "../api/client";
 import type { MapPackKeywordRow } from "../types/audit";
+import ZoomableImage from "../components/ui/ZoomableImage";
 
 export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Data> }) {
   const d = envelope.data;
@@ -37,6 +38,7 @@ export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Dat
           </span>
           <span className="stat-card-value">{citations ? fmtPercent(citations.nap_consistency_score) : "–"}</span>
           <span className="stat-card-sub">{fmtInt(citations?.active_citations)} active of {fmtInt(citations?.total_citations)} citations</span>
+          {citations?.nap_consistency_note && <span className="stat-card-sub" style={{ color: "var(--accent-amber)" }}>{citations.nap_consistency_note}</span>}
         </div>
         <div className="stat-card">
           <span className="stat-card-label">
@@ -61,7 +63,7 @@ export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Dat
       >
         <div className="form-card-shot" style={{ height: 460, maxWidth: 620, margin: "0 auto", borderRadius: 12, border: "1px solid var(--border)" }}>
           {screenshotUrl && screenshot?.status === "captured" ? (
-            <img src={screenshotUrl} alt="Google Business Profile screenshot" />
+            <ZoomableImage src={screenshotUrl} alt="Google Business Profile screenshot" />
           ) : (
             <span className="placeholder">{screenshot?.status ? `Screenshot ${screenshot.status}` : "No screenshot available"}</span>
           )}

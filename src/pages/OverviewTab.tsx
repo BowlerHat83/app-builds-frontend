@@ -87,6 +87,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       tabKey: "topic1",
       title: "Topic 1: Accessibility & Compliance",
       score: scoreTopic1(results).score,
+      pending: results.topic1_technical.status === "pending",
       rows: [
         { label: "Sitemap", value: t1.technical_standards?.sitemap?.found ? "Found" : "Not found" },
         { label: "WCAG Compliant", value: t1.wcag_accessibility ? `${fmtInt(t1.wcag_accessibility.score)}/100` : "–" },
@@ -97,8 +98,9 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       tabKey: "topic2",
       title: "Topic 2: Performance",
       score: scoreTopic2(results).score,
+      pending: results.topic2_performance.status === "pending",
       rows: [
-        { label: "Performance Score", value: t2.core_web_vitals?.performance_score != null ? `${t2.core_web_vitals.performance_score}/100` : "N/A" },
+        { label: "Performance Score (Mobile)", value: t2.core_web_vitals?.mobile?.performance_score != null ? `${t2.core_web_vitals.mobile.performance_score}/100` : "N/A" },
         { label: "Indexation Errors", value: fmtInt(t2.metadata_analysis?.indexation_errors_count) },
         { label: "Missing H1s", value: fmtInt(t2.metadata_analysis?.meta_counts?.missing_h1) },
       ],
@@ -107,6 +109,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       tabKey: "topic3",
       title: "Topic 3: Organic Visibility",
       score: scoreTopic3(results).score,
+      pending: results.topic3_organic_visibility.status === "pending",
       rows: [
         { label: "Backlinks", value: fmtInt(t3.backlinks_summary?.total_backlinks) },
         { label: "Avg Keyword Position", value: fmtDash(t3.keyword_position?.metrics?.average_position) },
@@ -117,6 +120,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       tabKey: "topic4",
       title: "Topic 4: AI Visibility",
       score: scoreTopic4(results).score,
+      pending: results.topic4_ai_visibility.status === "pending",
       rows: [
         { label: "Engine Visibility", value: fmtDash(t4.summary?.engine_visibility_ratio) },
         { label: "Cited URLs", value: fmtInt(t4.summary?.cited_urls_count) },
@@ -132,6 +136,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       // low score instead of a blank gauge, and no data at all still
       // reads as N/A.
       score: scoreTopic5(results).score,
+      pending: results.topic5_paid_visibility.status === "pending",
       rows: [
         { label: "No. of Terms", value: fmtInt(t5.keywords?.total_keywords) },
         { label: "Est. Monthly Spend", value: t5.keywords ? fmtCurrencyGBP(t5.keywords.estimated_monthly_spend) : "–" },
@@ -142,6 +147,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       title: "Topic 6: Local Visibility",
       score: scoreTopic6(results).score,
       highlight: true,
+      pending: results.topic6_local_visibility.status === "pending",
       rows: [
         { label: "Avg Map Pack Position", value: fmtDash(t6.map_pack?.average_map_pack_position) },
         { label: "No. of Citations", value: fmtInt(t6.citations?.total_citations) },
@@ -152,6 +158,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       tabKey: "topic7",
       title: "Topic 7: Onpage Content Quality",
       score: scoreTopic7(results).score,
+      pending: results.topic7_content_quality.status === "pending",
       rows: [
         { label: "URLs with Thin Content", value: fmtInt(t7.thin_content_analysis?.thin_content_page_count) },
         { label: "Unique Forms", value: fmtInt(t7.form_detection?.unique_forms_count) },
@@ -190,7 +197,14 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
           (WCAG &amp; GDPR scores, Lighthouse performance score, keyword rankings, AI citation ratio, NAP/reviews/map-pack
           data, and thin-content rate) — it isn't a number the API returns directly.
         </p>
-        <p className="overview-summary-text">{insightParagraph}</p>
+        {audit.complete !== false ? (
+          <p className="overview-summary-text">{insightParagraph}</p>
+        ) : (
+          <p className="overview-summary-text overview-summary-pending">
+            <span className="spinner" /> Waiting on the remaining topics to finish before summarizing — the topic
+            cards below will fill in as each one completes.
+          </p>
+        )}
       </Card>
 
       <div className="grid grid-2">
@@ -206,7 +220,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
                 ))}
               </ul>
             </div>
-            <GaugeRing value={c.score} size={64} strokeWidth={6} color={gradeFromScore(c.score).color} />
+            <GaugeRing loading={c.pending} value={c.score} size={64} strokeWidth={6} color={gradeFromScore(c.score).color} />
           </div>
         ))}
       </div>

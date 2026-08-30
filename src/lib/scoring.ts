@@ -41,13 +41,69 @@ export function scoreTopic1(results: MasterAuditResults): TopicScore {
   return { score, label: "Accessibility & Compliance" };
 }
 
+// Three independent signals, each present-or-excluded on its own (see
+// average() below) rather than one dominating the others:
+//   - Core Web Vitals: Lighthouse's own 0-100 performance score, averaged
+//     across mobile AND desktop where both ran - previously this was
+//     scored off the mobile run alone (Google's own mobile-first
+//     convention), which meant a desktop-only regression never touched the
+//     score at all even though the Topic 2 tab shows both runs in full.
+//   - Indexation health: what share of every crawled URL (Screaming
+//     Frog's total_urls_analyzed) came back marked non-indexable, as a
+//     straight 100-minus-percentage the same way scoreTopic7 turns thin-
+//     content rate into a score below.
+//   - Metadata hygiene: missing/duplicate/multiple title and description
+//     tags, each as their own share of total_urls_analyzed (a page can
+//     rack up more than one of the six categories at once - e.g. missing
+//     AND duplicate H1s is nonsensical but missing title + missing
+//     description isn't - so this averages the six per-category rates
+//     rather than summing raw counts, which would double-penalize pages
+//     with multiple simultaneous issues and could exceed 100%).
 export function scoreTopic2(results: MasterAuditResults): TopicScore {
-  // Scored off the mobile run specifically (Google's own mobile-first
-  // convention) - the desktop run is still shown in full on the Topic 2
-  // tab, it just isn't the figure that drives the composite.
-  const cwv = results.topic2_performance?.data?.core_web_vitals?.mobile;
-  const score = cwv?.performance_score ?? null;
-  return { score, label: "Performance" };
+  const data = results.topic2_performance?.data;
+  if (!data) return { score: null, label: "Performance" };
+
+  const parts: (number | null)[] = [];
+
+  const cwvScores = [data.core_web_vitals?.mobile?.performance_score, data.core_web_vitals?.desktop?.performance_score].filter(
+    (s): s is number => s != null
+  );
+  parts.push(cwvScores.length ? cwvScores.reduce((a, b) => a + b, 0) / cwvScores.length : null);
+
+  const meta = data.metadata_analysis;
+  const totalUrls = meta?.total_urls_analyzed ?? 0;
+
+  if (meta && totalUrls > 0 && meta.indexation_errors_count != null) {
+    const errorRate = clamp((meta.indexation_errors_count / totalUrls) * 100);
+    parts.push(clamp(100 - errorRate));
+  } else {
+    parts.push(null);
+  }
+
+  if (meta && totalUrls > 0) {
+    const categoryCounts = [
+      meta.meta_counts.title.missing,
+      meta.meta_counts.title.duplicate,
+      meta.meta_counts.title.multiple,
+      meta.meta_counts.description.missing,
+      meta.meta_counts.description.duplicate,
+      meta.meta_counts.description.multiple,
+    ];
+    const categoryRates = categoryCounts
+      .filter((c): c is number => c != null)
+      .map((c) => clamp((c / totalUrls) * 100));
+    if (categoryRates.length) {
+      const avgIssueRate = categoryRates.reduce((a, b) => a + b, 0) / categoryRates.length;
+      parts.push(clamp(100 - avgIssueRate));
+    } else {
+      parts.push(null);
+    }
+  } else {
+    parts.push(null);
+  }
+
+  const score = average(parts);
+  return { score: score !== null ? clamp(score) : null, label: "Performance" };
 }
 
 export function scoreTopic3(results: MasterAuditResults): TopicScore {

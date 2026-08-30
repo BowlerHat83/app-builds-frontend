@@ -174,6 +174,7 @@ export default function Topic2Performance({ envelope }: { envelope: Envelope<Top
             {meta?.title_distribution ? (
               <DistributionBar
                 segments={[
+                  { label: "Missing", value: meta.title_distribution.missing, color: "var(--accent-blue)" },
                   { label: "Under 30", value: meta.title_distribution.under, color: "var(--accent-amber)" },
                   { label: "Optimal", value: meta.title_distribution.optimal, color: "var(--accent)" },
                   { label: "Over 60", value: meta.title_distribution.over, color: "var(--accent-red)" },
@@ -188,6 +189,7 @@ export default function Topic2Performance({ envelope }: { envelope: Envelope<Top
             {meta?.description_distribution ? (
               <DistributionBar
                 segments={[
+                  { label: "Missing", value: meta.description_distribution.missing, color: "var(--accent-blue)" },
                   { label: "Under 120", value: meta.description_distribution.under, color: "var(--accent-amber)" },
                   { label: "Optimal", value: meta.description_distribution.optimal, color: "var(--accent)" },
                   { label: "Over 158", value: meta.description_distribution.over, color: "var(--accent-red)" },

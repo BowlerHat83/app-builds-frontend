@@ -174,6 +174,7 @@ export interface MetaCounts {
 }
 
 export interface LengthDistribution {
+  missing: number;
   under: number;
   optimal: number;
   over: number;

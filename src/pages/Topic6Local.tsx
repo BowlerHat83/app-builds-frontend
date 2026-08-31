@@ -69,7 +69,7 @@ export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Dat
         <div className="stat-card">
           <span className="stat-card-label">
             Avg Map Pack Rank
-            <Tip text="Average position in Google's local 3-pack across all tracked keywords — branded and, where available, unbranded terms from Organic, AI and PPC." />
+            <Tip text="Average position in Google's local 3-pack across real customer-search-style keywords built from the Core Offering entered on the intake screen (or branded terms if none was supplied)." />
           </span>
           <span className="stat-card-value">{fmtDash(mapPack?.average_map_pack_position)}</span>
           <span className="stat-card-sub">{fmtInt(mapPack?.keywords_in_map_pack)} of {fmtInt(mapPack?.total_keywords_tracked)} keywords in the 3-pack</span>
@@ -94,7 +94,12 @@ export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Dat
 
       <Card
         sectionLabel="Map Pack Keyword Breakdown"
-        right={<Tip text="Each keyword tested against Google's local 3-pack, and whether — and where — this business appeared." />}
+        right={
+          <span className="cell-muted" style={{ fontSize: 11.5, display: "flex", alignItems: "center", gap: 6 }}>
+            {d.core_offering ? `Core offering: "${d.core_offering}"` : "Branded keywords — no Core Offering supplied"}
+            <Tip text="Each keyword tested against Google's local 3-pack, and whether — and where — this business appeared." />
+          </span>
+        }
       >
         <DataTable columns={keywordColumns} rows={mapPack?.keyword_breakdown ?? []} maxHeight={280} />
       </Card>

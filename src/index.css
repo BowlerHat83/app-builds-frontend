@@ -962,8 +962,23 @@ button {
   gap: 14px;
 }
 
+.field-row.field-row-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.field-row-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
 @media (max-width: 720px) {
   .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .field-row.field-row-4 {
     grid-template-columns: 1fr;
   }
 }

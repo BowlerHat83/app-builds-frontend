@@ -22,6 +22,7 @@ export default function UploadForm({ onResult }: UploadFormProps) {
     target_url: "",
     business_name: "",
     target_location: "",
+    core_offering: "",
     enable_topic6_screenshot: false,
     enable_topic7_screenshots: false,
   });
@@ -147,7 +148,7 @@ export default function UploadForm({ onResult }: UploadFormProps) {
 
         <form onSubmit={handleSubmit}>
           <div className="intake-section">
-            <div className="field-row">
+            <div className="field-row field-row-4">
               <div className="field">
                 <label htmlFor="target_url">Target URL *</label>
                 <input
@@ -178,7 +179,23 @@ export default function UploadForm({ onResult }: UploadFormProps) {
                   onChange={(e) => updateField("target_location", e.target.value)}
                 />
               </div>
+              <div className="field">
+                <label htmlFor="core_offering">Core offering</label>
+                <input
+                  id="core_offering"
+                  type="text"
+                  placeholder="e.g. kitchen showroom"
+                  value={fields.core_offering}
+                  onChange={(e) => updateField("core_offering", e.target.value)}
+                />
+              </div>
             </div>
+            <p className="field-row-hint">
+              Core offering drives Topic 6&apos;s map-pack keyword set (the offering, plus a handful of real
+              customer-search variations) instead of testing rank against your business name - a branded search
+              almost always already ranks, which otherwise skews that score. Leave blank to fall back to the old
+              branded-keyword check.
+            </p>
 
             <div className="field-row checkbox-row">
               <label className="checkbox-field">

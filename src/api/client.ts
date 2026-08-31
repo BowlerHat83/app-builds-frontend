@@ -11,6 +11,14 @@ export interface AuditFormFields {
   target_url: string;
   business_name?: string;
   target_location?: string;
+  // What the business sells, e.g. "kitchen showroom" - distinct from the
+  // brand name. Drives Topic 6's map-pack keyword set (core offering +
+  // location + a handful of semantic variations) instead of testing
+  // rank against branded terms, which are nearly guaranteed to already
+  // rank and were skewing that average - see generate_offering_keywords
+  // in topic6_local_visibility/aggregate.py. Falls back to the old
+  // branded-keyword behaviour (with a warning) if left blank.
+  core_offering?: string;
   // Both default to false (opt-in) - they launch a real, un-resource-
   // blocked Chromium page load (Topic 6: one GBP screenshot; Topic 7: a
   // crawl across up to 30 candidate pages) that has crashed the live
@@ -80,6 +88,7 @@ export async function runMasterAudit(
   form.append("target_url", fields.target_url);
   if (fields.business_name) form.append("business_name", fields.business_name);
   if (fields.target_location) form.append("target_location", fields.target_location);
+  if (fields.core_offering) form.append("core_offering", fields.core_offering);
   if (jobId) form.append("job_id", jobId);
 
   (Object.keys(files) as (keyof AuditFormFiles)[]).forEach((key) => {
@@ -148,6 +157,7 @@ export async function startAuditJob(fields: AuditFormFields, files: AuditFormFil
   form.append("target_url", fields.target_url);
   if (fields.business_name) form.append("business_name", fields.business_name);
   if (fields.target_location) form.append("target_location", fields.target_location);
+  if (fields.core_offering) form.append("core_offering", fields.core_offering);
   // Always sent explicitly (not conditionally, unlike the optional string
   // fields above) so the backend always gets a real true/false rather than
   // falling back to its own default via an absent form field either way -

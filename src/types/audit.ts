@@ -515,6 +515,10 @@ export interface Topic6Data {
   topic: string;
   business_name: string;
   location: string;
+  // What the business sells (e.g. "kitchen showroom") - null when this
+  // audit run didn't supply one, in which case map_pack.keyword_breakdown
+  // falls back to branded terms instead (see the envelope warning).
+  core_offering: string | null;
   citations: CitationsBlock | null;
   map_pack: MapPackBlock | null;
   reviews: ReviewsBlock | null;

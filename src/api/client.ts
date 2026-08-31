@@ -11,6 +11,14 @@ export interface AuditFormFields {
   target_url: string;
   business_name?: string;
   target_location?: string;
+  // Both default to false (opt-in) - they launch a real, un-resource-
+  // blocked Chromium page load (Topic 6: one GBP screenshot; Topic 7: a
+  // crawl across up to 30 candidate pages) that has crashed the live
+  // backend under memory pressure before this became opt-in. See
+  // enable_screenshot in topic6/aggregate.py and enable_form_screenshots
+  // in topic7/aggregate.py for the full history.
+  enable_topic6_screenshot?: boolean;
+  enable_topic7_screenshots?: boolean;
 }
 
 export interface AuditFormFiles {
@@ -140,6 +148,12 @@ export async function startAuditJob(fields: AuditFormFields, files: AuditFormFil
   form.append("target_url", fields.target_url);
   if (fields.business_name) form.append("business_name", fields.business_name);
   if (fields.target_location) form.append("target_location", fields.target_location);
+  // Always sent explicitly (not conditionally, unlike the optional string
+  // fields above) so the backend always gets a real true/false rather than
+  // falling back to its own default via an absent form field either way -
+  // one less thing to keep in sync between the two.
+  form.append("enable_topic6_screenshot", String(!!fields.enable_topic6_screenshot));
+  form.append("enable_topic7_screenshots", String(!!fields.enable_topic7_screenshots));
 
   (Object.keys(files) as (keyof AuditFormFiles)[]).forEach((key) => {
     const file = files[key];

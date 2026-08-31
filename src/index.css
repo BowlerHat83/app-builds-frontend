@@ -968,6 +968,45 @@ button {
   }
 }
 
+.field-row.checkbox-row {
+  grid-template-columns: repeat(2, 1fr);
+  margin-top: 14px;
+}
+
+@media (max-width: 720px) {
+  .field-row.checkbox-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.checkbox-field input[type="checkbox"] {
+  margin-top: 3px;
+  flex: none;
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.checkbox-hint {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  margin-top: 3px;
+}
+
 .field {
   display: flex;
   flex-direction: column;

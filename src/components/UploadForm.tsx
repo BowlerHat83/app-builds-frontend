@@ -18,7 +18,13 @@ interface UploadFormProps {
 }
 
 export default function UploadForm({ onResult }: UploadFormProps) {
-  const [fields, setFields] = useState<AuditFormFields>({ target_url: "", business_name: "", target_location: "" });
+  const [fields, setFields] = useState<AuditFormFields>({
+    target_url: "",
+    business_name: "",
+    target_location: "",
+    enable_topic6_screenshot: false,
+    enable_topic7_screenshots: false,
+  });
   const [files, setFiles] = useState<AuditFormFiles>({});
   const [unmatched, setUnmatched] = useState<UnmatchedFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
@@ -29,6 +35,10 @@ export default function UploadForm({ onResult }: UploadFormProps) {
 
   const updateField = (key: keyof AuditFormFields, value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const toggleField = (key: "enable_topic6_screenshot" | "enable_topic7_screenshots") => {
+    setFields((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const assignFile = (key: SlotKey, file: File) => {
@@ -168,6 +178,38 @@ export default function UploadForm({ onResult }: UploadFormProps) {
                   onChange={(e) => updateField("target_location", e.target.value)}
                 />
               </div>
+            </div>
+
+            <div className="field-row checkbox-row">
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={!!fields.enable_topic6_screenshot}
+                  onChange={() => toggleField("enable_topic6_screenshot")}
+                />
+                <span>
+                  Capture Google Business Profile screenshot (Topic 6)
+                  <span className="checkbox-hint">
+                    Real-browser page load - off by default, since this has previously crashed the live backend
+                    under memory pressure. Turn on if you need the visual for this run.
+                  </span>
+                </span>
+              </label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={!!fields.enable_topic7_screenshots}
+                  onChange={() => toggleField("enable_topic7_screenshots")}
+                />
+                <span>
+                  Crawl for &amp; screenshot forms (Topic 7)
+                  <span className="checkbox-hint">
+                    Real-browser crawl across up to 30 pages - off by default for the same reason. Unique forms,
+                    CTA counts and placement guidance are also skipped while this is off; thin content analysis
+                    isn't affected either way.
+                  </span>
+                </span>
+              </label>
             </div>
           </div>
 

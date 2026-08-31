@@ -4,7 +4,14 @@
 // too - the UI is written to show "Not available" rather than assume a field
 // is always present.
 
-export type EnvelopeStatus = "success" | "partial" | "error" | "pending";
+export type EnvelopeStatus = "success" | "partial" | "error" | "pending" | "incomplete";
+// "incomplete" is a frontend-only status (the backend never sends it) - it
+// means this topic was still "pending" when the backend job vanished
+// (a crash-restart or a redeploy mid-run wipes the in-memory job store),
+// so it will never actually finish. Distinct from "pending" so the UI can
+// stop showing a spinner that will never resolve and instead show a "-"
+// score, an asterisk, and an explanatory banner - see App.tsx's
+// AuditJobNotFoundError handling.
 
 export interface Envelope<T> {
   status: EnvelopeStatus;

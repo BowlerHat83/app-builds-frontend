@@ -88,6 +88,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       title: "Topic 1: Accessibility & Compliance",
       score: scoreTopic1(results).score,
       pending: results.topic1_technical.status === "pending",
+      incomplete: results.topic1_technical.status === "incomplete",
       rows: [
         { label: "Sitemap", value: t1.technical_standards?.sitemap?.found ? "Found" : "Not found" },
         { label: "WCAG Compliant", value: t1.wcag_accessibility ? `${fmtInt(t1.wcag_accessibility.score)}/100` : "–" },
@@ -99,6 +100,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       title: "Topic 2: Performance",
       score: scoreTopic2(results).score,
       pending: results.topic2_performance.status === "pending",
+      incomplete: results.topic2_performance.status === "incomplete",
       rows: [
         { label: "Performance Score (Mobile)", value: t2.core_web_vitals?.mobile?.performance_score != null ? `${t2.core_web_vitals.mobile.performance_score}/100` : "N/A" },
         { label: "Indexation Errors", value: fmtInt(t2.metadata_analysis?.indexation_errors_count) },
@@ -110,6 +112,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       title: "Topic 3: Organic Visibility",
       score: scoreTopic3(results).score,
       pending: results.topic3_organic_visibility.status === "pending",
+      incomplete: results.topic3_organic_visibility.status === "incomplete",
       rows: [
         { label: "Backlinks", value: fmtInt(t3.backlinks_summary?.total_backlinks) },
         { label: "Avg Keyword Position", value: fmtDash(t3.keyword_position?.metrics?.average_position) },
@@ -121,6 +124,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       title: "Topic 4: AI Visibility",
       score: scoreTopic4(results).score,
       pending: results.topic4_ai_visibility.status === "pending",
+      incomplete: results.topic4_ai_visibility.status === "incomplete",
       rows: [
         { label: "Engine Visibility", value: fmtDash(t4.summary?.engine_visibility_ratio) },
         { label: "Cited URLs", value: fmtInt(t4.summary?.cited_urls_count) },
@@ -137,6 +141,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       // reads as N/A.
       score: scoreTopic5(results).score,
       pending: results.topic5_paid_visibility.status === "pending",
+      incomplete: results.topic5_paid_visibility.status === "incomplete",
       rows: [
         { label: "No. of Terms", value: fmtInt(t5.keywords?.total_keywords) },
         { label: "Est. Monthly Spend", value: t5.keywords ? fmtCurrencyGBP(t5.keywords.estimated_monthly_spend) : "–" },
@@ -148,6 +153,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       score: scoreTopic6(results).score,
       highlight: true,
       pending: results.topic6_local_visibility.status === "pending",
+      incomplete: results.topic6_local_visibility.status === "incomplete",
       rows: [
         { label: "Avg Map Pack Position", value: fmtDash(t6.map_pack?.average_map_pack_position) },
         { label: "No. of Citations", value: fmtInt(t6.citations?.total_citations) },
@@ -159,6 +165,7 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
       title: "Topic 7: Onpage Content Quality",
       score: scoreTopic7(results).score,
       pending: results.topic7_content_quality.status === "pending",
+      incomplete: results.topic7_content_quality.status === "incomplete",
       rows: [
         { label: "URLs with Thin Content", value: fmtInt(t7.thin_content_analysis?.thin_content_page_count) },
         { label: "Unique Forms", value: fmtInt(t7.form_detection?.unique_forms_count) },
@@ -227,7 +234,15 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
         {cards.map((c) => (
           <div key={c.tabKey} className={`card overview-topic-card ${c.highlight ? "card-accent" : ""}`} onClick={() => onJumpTo(c.tabKey)}>
             <div style={{ flex: 1 }}>
-              <h3>{c.title}</h3>
+              <h3>
+                {c.title}
+                {c.incomplete && (
+                  <span className="incomplete-marker" title="Didn't finish this run - see this topic's tab for details">
+                    {" "}
+                    *
+                  </span>
+                )}
+              </h3>
               <ul>
                 {c.rows.map((r, i) => (
                   <li key={i}>
@@ -240,6 +255,12 @@ export default function OverviewTab({ audit, onJumpTo }: OverviewTabProps) {
           </div>
         ))}
       </div>
+      {cards.some((c) => c.incomplete) && (
+        <p className="note-text">
+          * This topic didn't finish during this run and is excluded from the composite score above (shown as N/A,
+          not a 0) - see its tab for what happened.
+        </p>
+      )}
     </div>
   );
 }

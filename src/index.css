@@ -1148,6 +1148,11 @@ button {
   line-height: 1.5;
 }
 
+.incomplete-marker {
+  color: var(--accent-amber);
+  font-weight: 800;
+}
+
 .link-btn {
   background: none;
   border: none;

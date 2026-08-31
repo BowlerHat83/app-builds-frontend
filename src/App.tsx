@@ -12,7 +12,7 @@ import Topic5Paid from "./pages/Topic5Paid";
 import Topic6Local from "./pages/Topic6Local";
 import Topic7Content from "./pages/Topic7Content";
 import { pollAuditStatus, AuditJobNotFoundError } from "./api/client";
-import type { MasterAuditResponse } from "./types/audit";
+import type { MasterAuditResponse, MasterAuditResults } from "./types/audit";
 
 // How often to poll GET /audit-status/:job_id while any topic is still
 // "pending". 4s is frequent enough that topics visibly fill in one at a
@@ -32,6 +32,23 @@ const TOPIC_RESULT_KEYS = [
 
 function countCompletedTopics(audit: MasterAuditResponse): number {
   return TOPIC_RESULT_KEYS.filter((key) => audit.master_audit_results[key]?.status !== "pending").length;
+}
+
+// Rewrites one topic's envelope to "incomplete" (see EnvelopeStatus in
+// types/audit.ts) - generic over the specific key so TypeScript can verify
+// the spread stays a valid Envelope<TopicNData> for whichever topic this
+// is, which a plain `results[key] = {...}` inside a loop over the whole
+// key union can't do (the union of all 7 envelope shapes isn't the same
+// type as "the correct one for this specific key").
+function markTopicIncomplete<K extends keyof MasterAuditResults>(
+  results: MasterAuditResults,
+  key: K,
+  warning: string
+): MasterAuditResults {
+  return {
+    ...results,
+    [key]: { ...results[key], status: "incomplete", warnings: [warning] },
+  };
 }
 
 const TABS: TabDef[] = [
@@ -91,10 +108,43 @@ export default function App() {
         if (cancelled) return;
         if (err instanceof AuditJobNotFoundError) {
           // Terminal - this job_id will never come back, so retrying is
-          // pointless. Stop the loop and tell the user plainly rather than
-          // silently hammering a 404 forever; whatever topics already
-          // completed stay exactly as shown.
-          setPollNotice({ message: err.message, terminal: true });
+          // pointless. Stop the loop; whatever topics already completed
+          // stay exactly as shown. Any topic still "pending" at this exact
+          // moment never will finish, so it's rewritten to "incomplete"
+          // (see EnvelopeStatus in types/audit.ts) rather than left stuck
+          // on a spinner forever - every place that already renders an
+          // envelope (the overview cards, the composite, each topic's own
+          // tab banner) picks this up for free, no other UI code needed.
+          // complete: true also flips the composite section from "waiting
+          // to finish" to actually showing a real score/grade computed
+          // from whichever topics have real data - the same N/A-exclusion
+          // logic already used for a topic with no CSV uploaded.
+          setAudit((current) => {
+            if (!current) return current;
+            let updatedResults = current.master_audit_results;
+            let anyIncomplete = false;
+            for (const key of TOPIC_RESULT_KEYS) {
+              if (updatedResults[key].status === "pending") {
+                updatedResults = markTopicIncomplete(
+                  updatedResults,
+                  key,
+                  "This section didn't finish - the backend most likely restarted mid-audit " +
+                    "(Render's free tier can crash-restart under memory pressure). We're aware of " +
+                    "this and are actively working to resolve it. Try running the audit again shortly."
+                );
+                anyIncomplete = true;
+              }
+            }
+            return anyIncomplete ? { ...current, master_audit_results: updatedResults, complete: true } : current;
+          });
+          setPollNotice({
+            message:
+              "This audit didn't finish - the backend most likely restarted mid-run. Topics that " +
+              "completed are shown below with real results; any topic marked with an asterisk on the " +
+              "Overview tab didn't finish and is excluded from the composite score. We're aware of " +
+              "this and working to make full runs more reliable.",
+            terminal: true,
+          });
           return;
         }
         // A single failed poll (network hiccup, backend briefly under

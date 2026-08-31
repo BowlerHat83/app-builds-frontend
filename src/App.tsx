@@ -72,6 +72,13 @@ export default function App() {
   // Cleared on every successful poll and on starting a new audit.
   const [pollNotice, setPollNotice] = useState<{ message: string; terminal: boolean } | null>(null);
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Counts consecutive failed polls (network hiccup, backend briefly
+  // asleep/under load, a mid-air connection drop - the raw browser
+  // message for these is a bare, uninformative "Failed to fetch") so a
+  // single blip stays silent and retries in the background instead of
+  // flashing an alarming, low-information banner every ~4s. Only a run
+  // of real trouble surfaces a (friendly, non-technical) notice.
+  const pollFailureStreakRef = useRef(0);
 
   const handleResult = (result: MasterAuditResponse) => {
     setAudit(result);
@@ -94,11 +101,13 @@ export default function App() {
     }
 
     let cancelled = false;
+    pollFailureStreakRef.current = 0;
 
     const tick = async () => {
       try {
         const next = await pollAuditStatus(jobId);
         if (cancelled) return;
+        pollFailureStreakRef.current = 0;
         setAudit(next);
         setPollNotice(null);
         if (!next.complete) {
@@ -147,14 +156,22 @@ export default function App() {
           });
           return;
         }
-        // A single failed poll (network hiccup, backend briefly under
-        // load) isn't fatal - keep whatever results are already on screen,
-        // surface a small non-blocking notice so it's not a silent retry
-        // loop, and try again on the next tick.
-        setPollNotice({
-          message: err instanceof Error ? err.message : "The last status check failed - retrying automatically…",
-          terminal: false,
-        });
+        // A single failed poll (network hiccup, backend briefly under load,
+        // a connection dropped mid-request) isn't fatal - keep whatever
+        // results are already on screen and try again on the next tick.
+        // Stay silent for the first couple of misses (this is the common
+        // case and resolves itself); only once failures stack up in a row
+        // does it become worth telling the user, and even then with a
+        // plain-language notice rather than the raw fetch error text
+        // (a bare network failure surfaces here as "Failed to fetch",
+        // which is accurate but meaningless to someone reading it).
+        pollFailureStreakRef.current += 1;
+        if (pollFailureStreakRef.current >= 3) {
+          setPollNotice({
+            message: "Having trouble reaching the audit backend - retrying automatically…",
+            terminal: false,
+          });
+        }
         pollTimeoutRef.current = setTimeout(tick, POLL_INTERVAL_MS);
       }
     };

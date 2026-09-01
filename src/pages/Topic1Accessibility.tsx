@@ -61,23 +61,20 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
     { key: "secure", header: "Secure", render: (r) => (r.secure === "True" ? <Badge tone="good">Yes</Badge> : <Badge tone="neutral">No</Badge>) },
   ];
 
-  // Mirrors wcag_service.py's _SEVERITY_WEIGHT - the backend score is
-  // 100 minus a severity-weighted deduction, not a flat -5 per issue. This
-  // renders that same composition as a bar, so "no issues" reads as a full
-  // healthy bar instead of a single Minor issue filling the whole bar red
-  // (which is what a bar proportional to raw issue counts would do).
-  const WCAG_WEIGHT = { critical: 8, serious: 5, moderate: 3, minor: 1 };
-  const wcagDeductions = wcag
+  // Raw issue-type counts per severity, straight from by_impact - matches
+  // the stat boxes below exactly. This used to render severity-WEIGHTED
+  // points lost (mirroring the backend's own score formula) instead of
+  // real counts, which read as a mismatch against the boxes even though
+  // both numbers were individually correct - just different units. Real
+  // counts only, now, for one consistent picture.
+  const wcagCounts = wcag
     ? {
-        critical: wcag.by_impact.critical * WCAG_WEIGHT.critical,
-        serious: wcag.by_impact.serious * WCAG_WEIGHT.serious,
-        moderate: wcag.by_impact.moderate * WCAG_WEIGHT.moderate,
-        minor: wcag.by_impact.minor * WCAG_WEIGHT.minor,
+        critical: wcag.by_impact.critical,
+        serious: wcag.by_impact.serious,
+        moderate: wcag.by_impact.moderate,
+        minor: wcag.by_impact.minor,
       }
     : null;
-  const wcagHealthy = wcagDeductions
-    ? Math.max(0, 100 - (wcagDeductions.critical + wcagDeductions.serious + wcagDeductions.moderate + wcagDeductions.minor))
-    : 100;
 
   return (
     <div className="stack">
@@ -152,18 +149,21 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
         {wcag && (
           <div style={{ marginBottom: 18 }}>
             <p className="section-label" style={{ marginBottom: 8 }}>
-              Score Composition
-              <Tip text="How the score above breaks down — the healthy portion vs. points lost to each severity of issue. A page with zero issues shows a fully healthy bar." />
+              Issue Breakdown by Severity
+              <Tip text="How many distinct issue types were found at each severity level - matches the counts below." />
             </p>
-            <DistributionBar
-              segments={[
-                { label: "Healthy", value: wcagHealthy, color: "var(--accent)" },
-                { label: "Critical pts", value: wcagDeductions!.critical, color: "var(--accent-red)" },
-                { label: "Serious pts", value: wcagDeductions!.serious, color: "var(--accent-orange)" },
-                { label: "Moderate pts", value: wcagDeductions!.moderate, color: "var(--accent-yellow)" },
-                { label: "Minor pts", value: wcagDeductions!.minor, color: "var(--accent-blue)" },
-              ]}
-            />
+            {wcagCounts!.critical + wcagCounts!.serious + wcagCounts!.moderate + wcagCounts!.minor === 0 ? (
+              <p className="note-text">No accessibility issues detected at any severity.</p>
+            ) : (
+              <DistributionBar
+                segments={[
+                  { label: "Critical", value: wcagCounts!.critical, color: "var(--accent-red)" },
+                  { label: "Serious", value: wcagCounts!.serious, color: "var(--accent-orange)" },
+                  { label: "Moderate", value: wcagCounts!.moderate, color: "var(--accent-yellow)" },
+                  { label: "Minor", value: wcagCounts!.minor, color: "var(--accent-blue)" },
+                ]}
+              />
+            )}
           </div>
         )}
         <div className="grid grid-4" style={{ marginBottom: 18 }}>

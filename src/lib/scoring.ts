@@ -1,13 +1,15 @@
 // Every score computed here is a frontend-side composite derived from real
 // fields in the audit response - the backend never returns a single 0-100
 // "topic score" for most topics, so this is clearly a derived estimate, not
-// raw API data. Any topic where the underlying numbers don't support a
-// meaningful good/bad direction (Topic 5: more paid spend isn't inherently
-// good or bad) is left out of the composite rather than guessed. Topic 5
-// still gets its own scoreTopic5() below for its card on the overview grid
-// - that one measures how much substantive PPC data actually came back
-// (not whether the spend is "good"), so a handful of keywords with no real
-// spend behind them reads as a low score rather than a blank one.
+// raw API data. A topic (or a signal within it) only ever scores off data
+// that was both supplied AND successfully gathered - a failed live check
+// (a timed-out sitemap fetch, a SerpApi error response) is excluded from
+// the average the same way a CSV that was never uploaded is, never scored
+// as if it were a real negative result. Topic 5 (Paid Visibility) measures
+// the target's own PPC coverage/spend/clicks against the average of its
+// tracked competitors - genuinely requires both the keywords and
+// competitors exports, so it scores null (N/A) with only one of the two,
+// rather than falling back to a data-completeness measure.
 
 import type { MasterAuditResults } from "../types/audit";
 
@@ -33,7 +35,8 @@ export function scoreTopic1(results: MasterAuditResults): TopicScore {
   const gdpr = data.gdpr_compliance?.score ?? null;
   let score = average([wcag, gdpr]);
   if (score !== null) {
-    if (data.technical_standards?.sitemap?.found === false) score -= 8;
+    const sitemap = data.technical_standards?.sitemap;
+    if (sitemap?.found === false && sitemap?.check_failed !== true) score -= 8;
     if (data.technical_standards?.ssl_certificate?.is_expired) score -= 20;
     if (data.technical_standards?.html_syntax?.is_valid === false) score -= 5;
     score = clamp(score);
@@ -107,12 +110,38 @@ export function scoreTopic2(results: MasterAuditResults): TopicScore {
 }
 
 export function scoreTopic3(results: MasterAuditResults): TopicScore {
-  const kp = results.topic3_organic_visibility?.data?.keyword_position?.metrics;
-  if (!kp || !kp.total_keywords_analyzed) return { score: null, label: "Organic Visibility" };
-  const top10Rate = (kp.top_10_count / kp.total_keywords_analyzed) * 100;
-  const positionScore = clamp(100 - kp.average_position * 3);
-  const score = clamp((top10Rate + positionScore) / 2);
-  return { score, label: "Organic Visibility" };
+  const data = results.topic3_organic_visibility?.data;
+  const label = "Organic Visibility";
+  if (!data) return { score: null, label };
+  const parts: (number | null)[] = [];
+
+  const kp = data.keyword_position?.metrics;
+  let keywordScore: number | null = null;
+  if (kp && kp.total_keywords_analyzed) {
+    const top10Rate = (kp.top_10_count / kp.total_keywords_analyzed) * 100;
+    const positionScore = clamp(100 - kp.average_position * 3);
+    keywordScore = clamp((top10Rate + positionScore) / 2);
+  }
+
+  const drMetrics = data.domain_rating?.metrics;
+  if (keywordScore !== null && drMetrics && drMetrics.average_competitor_dr != null) {
+    const drDelta = drMetrics.average_competitor_dr - 50;
+    const adjustment = clamp(drDelta * 0.2, -10, 10);
+    keywordScore = clamp(keywordScore + adjustment);
+  }
+  parts.push(keywordScore);
+
+  const bl = data.backlinks_summary;
+  if (bl && bl.total_backlinks > 0) {
+    const domainBreadth = clamp((bl.unique_referring_domains / 30) * 100);
+    const dofollowRatio = clamp((bl.dofollow_backlinks / bl.total_backlinks) * 100);
+    parts.push((domainBreadth + dofollowRatio) / 2);
+  } else {
+    parts.push(null);
+  }
+
+  const score = average(parts);
+  return { score: score !== null ? clamp(score) : null, label };
 }
 
 // Being cited across all 4 tracked engines is a useful signal, but on its
@@ -192,29 +221,32 @@ export function scoreTopic5(results: MasterAuditResults): TopicScore {
   const data = results.topic5_paid_visibility?.data;
   const kw = data?.keywords;
   const comp = data?.competitor_share;
-  if (!kw && !comp) return { score: null, label: "No data" };
+  const label = "Paid Search Competitive Standing";
+  if (!kw || !comp || !comp.competitor_share_breakdown?.length) return { score: null, label };
 
-  const parts: number[] = [];
+  const meanOf = (values: (number | null | undefined)[]): number | null => {
+    const present = values.filter((v): v is number => v != null && !Number.isNaN(v) && v > 0);
+    if (!present.length) return null;
+    return present.reduce((a, b) => a + b, 0) / present.length;
+  };
 
-  if (kw) {
-    // 20+ tracked keywords is treated as strong coverage; scales down
-    // linearly from there rather than requiring an arbitrary "good" count.
-    parts.push(clamp(((kw.total_keywords ?? 0) / 20) * 100));
-    // Whether real budget/CPC data came back at all - not whether the
-    // figure itself is high or low, since spend level isn't a quality
-    // signal, only its presence is.
-    const hasSpendSignal = (kw.estimated_monthly_spend ?? 0) > 0 || (kw.average_cpc ?? 0) > 0;
-    parts.push(hasSpendSignal ? 100 : 0);
-  }
+  const avgCompetitorKeywords = meanOf(comp.competitor_share_breakdown.map((c) => c.monthly_paid_keywords));
+  const avgCompetitorClicks = meanOf(comp.competitor_share_breakdown.map((c) => c.monthly_paid_clicks));
+  const avgCompetitorBudget = meanOf(comp.competitor_share_breakdown.map((c) => c.monthly_ad_budget));
 
-  if (comp) {
-    // 5+ competitors analyzed is treated as strong coverage, same scaling
-    // logic as keyword coverage above.
-    parts.push(clamp(((comp.total_competitors_analyzed ?? 0) / 5) * 100));
-  }
+  const ratioScore = (own: number | null | undefined, competitorAvg: number | null): number | null => {
+    if (own == null || competitorAvg == null || competitorAvg <= 0) return null;
+    return clamp((own / competitorAvg) * 50);
+  };
 
-  const score = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
-  return { score, label: "Paid Data Completeness" };
+  const parts = [
+    ratioScore(kw.total_keywords, avgCompetitorKeywords),
+    ratioScore(kw.total_monthly_clicks, avgCompetitorClicks),
+    ratioScore(kw.estimated_monthly_spend, avgCompetitorBudget),
+  ];
+
+  const score = average(parts);
+  return { score: score !== null ? clamp(score) : null, label };
 }
 
 export interface CompositeScore {

@@ -32,6 +32,7 @@ export interface SitemapFreshness {
 
 export interface SitemapCheck {
   found: boolean;
+  check_failed?: boolean;
   sitemap_url?: string | null;
   url_count?: number | null;
   freshness?: SitemapFreshness | null;

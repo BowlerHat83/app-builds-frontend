@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 // steps) since this is meant to be glanced at while sat in front of the
 // export tool, not read top to bottom. The full walkthrough with numbered
 // steps lives at the guide link in the footer for anyone who needs it.
-const GUIDE_URL = "https://claude.ai/code/artifact/a44ebc13-dbf3-44e4-a3a1-18922669bd53";
+const GUIDE_URL = "https://claude.ai/code/artifact/1fd34a08-2daf-4cf0-8f52-8c97e3ac094c";
 
 interface FieldRef {
   name: string;
@@ -33,7 +33,7 @@ const FILES: FileRef[] = [
   { slot: "ahrefs_backlinks_csv", tool: "Ahrefs", export: "Backlinks report", feeds: "T3", match: '"backlink"' },
   { slot: "ahrefs_keywords_csv", tool: "Ahrefs", export: "Organic keywords report", feeds: "T3", match: '"organic keywords"' },
   { slot: "ahrefs_competitors_csv", tool: "Ahrefs", export: "Organic competitors report", feeds: "T3", match: '"orgcompetitors" / "competitor" (not "ppc")' },
-  { slot: "ai_facts_csv", tool: "Waikay", export: "Fact Tracker export (Brand Name report)", feeds: "T4", match: '"facts"' },
+  { slot: "ai_facts_csv", tool: "Waikay", export: "Fact Tracker export (Core Offering report)", feeds: "T4", match: '"facts"' },
   { slot: "ai_sources_csv", tool: "Waikay", export: "Source Tracker export (Knowledge Sources)", feeds: "T4", match: '"sources" / "knowledge sources"' },
   { slot: "ppc_keywords_csv", tool: "PPC research tool", export: "Keyword research export", feeds: "T5", match: '"ppc" + "keyword"' },
   { slot: "ppc_competitors_csv", tool: "PPC research tool", export: "Competitor overlap export", feeds: "T5", match: '"ppc" + "competitor"' },

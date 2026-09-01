@@ -170,10 +170,29 @@ export async function startAuditJob(fields: AuditFormFields, files: AuditFormFil
     if (file) form.append(key, file);
   });
 
-  const res = await fetch(`${API_BASE_URL}/audit-start`, {
-    method: "POST",
-    body: form,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}/audit-start`, {
+      method: "POST",
+      body: form,
+    });
+  } catch (err) {
+    // fetch() throwing (rather than resolving with a non-ok status) means
+    // no HTTP response ever came back at all - DNS failure, connection
+    // refused/reset, or a corporate firewall/proxy silently dropping the
+    // request before it reaches the backend. This used to propagate as a
+    // bare, uncaught "Failed to fetch" all the way to the on-screen error
+    // banner (see the near-identical fix already applied to
+    // runMasterAudit() above) - since this is the call the live UI
+    // actually uses on submit, that bare message is almost certainly
+    // what shows up as the audit "barely getting past the input stage"
+    // on a network that can't reach the backend at all.
+    throw new Error(
+      `Could not reach the audit backend at ${API_BASE_URL}: ${err instanceof Error ? err.message : String(err)}. ` +
+        "If this is a work/corporate network, it may be blocking or unable to resolve this address - try a " +
+        "personal hotspot to check, or ask IT whether outbound requests to this domain are allowed."
+    );
+  }
 
   if (!res.ok) {
     let detail = res.statusText;

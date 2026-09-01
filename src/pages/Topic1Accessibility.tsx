@@ -158,10 +158,10 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
             <DistributionBar
               segments={[
                 { label: "Healthy", value: wcagHealthy, color: "var(--accent)" },
-                { label: "Critical", value: wcagDeductions!.critical, color: "var(--accent-red)" },
-                { label: "Serious", value: wcagDeductions!.serious, color: "var(--accent-orange)" },
-                { label: "Moderate", value: wcagDeductions!.moderate, color: "var(--accent-yellow)" },
-                { label: "Minor", value: wcagDeductions!.minor, color: "var(--accent-blue)" },
+                { label: "Critical pts", value: wcagDeductions!.critical, color: "var(--accent-red)" },
+                { label: "Serious pts", value: wcagDeductions!.serious, color: "var(--accent-orange)" },
+                { label: "Moderate pts", value: wcagDeductions!.moderate, color: "var(--accent-yellow)" },
+                { label: "Minor pts", value: wcagDeductions!.minor, color: "var(--accent-blue)" },
               ]}
             />
           </div>

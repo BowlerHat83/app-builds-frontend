@@ -158,7 +158,8 @@ export function scoreTopic3(results: MasterAuditResults): TopicScore {
 // no target_url to scope to) is excluded from the average entirely.
 export function scoreTopic4(results: MasterAuditResults): TopicScore {
   const data = results.topic4_ai_visibility?.data;
-  if (!data) return { score: null, label: "AI Visibility" };
+  const label = "AI Visibility";
+  if (!data) return { score: null, label };
 
   const parts: (number | null)[] = [];
 
@@ -170,27 +171,38 @@ export function scoreTopic4(results: MasterAuditResults): TopicScore {
     parts.push(null);
   }
 
-  const targetUrls = data.top_target_urls;
-  if (targetUrls && targetUrls.total_citation_rows !== undefined) {
-    // 10+ citation rows against the target's own pages is treated as
-    // strong depth; scales down linearly from there.
-    parts.push(clamp((targetUrls.total_citation_rows / 10) * 100));
-  } else {
-    parts.push(null);
-  }
+  // Diminishing-returns curve instead of a hard linear cap: approaches but
+  // never fully plateaus at 100, so a result dramatically better than
+  // "solid" can still show it instead of reading identically to a
+  // merely-decent one. saturationScale is the count at which this reaches
+  // ~63/100 - tune if real-world runs show it's calibrated too high/low.
+  const diminishing = (count: number | null | undefined, saturationScale: number): number | null => {
+    if (count == null || count < 0) return null;
+    return clamp(100 * (1 - Math.exp(-count / saturationScale)));
+  };
 
-  const searchTerms = data.top_search_terms;
-  if (searchTerms && searchTerms.top_search_terms !== undefined) {
-    // Capped at the top 10 prompts returned, so this maxes out once 10
-    // distinct real prompts surfaced the site rather than requiring an
-    // arbitrarily larger count.
-    parts.push(clamp((searchTerms.top_search_terms.length / 10) * 100));
-  } else {
-    parts.push(null);
-  }
+  const targetUrls = data.top_target_urls;
+  parts.push(
+    targetUrls && targetUrls.total_citation_rows !== undefined
+      ? diminishing(targetUrls.total_citation_rows, 15)
+      : null
+  );
+
+  // cited_search_terms_count (data.summary) is the real, untruncated count
+  // of distinct prompts that surfaced the site, computed straight from the
+  // facts CSV. top_search_terms.top_search_terms is a DISPLAY list the
+  // backend caps at 10 rows - scoring off its .length meant this part hit
+  // exactly 100 the instant there were 10+ real matches, since the list
+  // itself could never be longer than 10. It wasn't measuring breadth, it
+  // was measuring "did the truncation kick in." Uses the real count instead.
+  parts.push(
+    data.summary?.cited_search_terms_count !== undefined
+      ? diminishing(data.summary.cited_search_terms_count, 15)
+      : null
+  );
 
   const score = average(parts);
-  return { score: score !== null ? clamp(score) : null, label: "AI Visibility" };
+  return { score: score !== null ? clamp(score) : null, label };
 }
 
 export function scoreTopic6(results: MasterAuditResults): TopicScore {

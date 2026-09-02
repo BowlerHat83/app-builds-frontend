@@ -1898,3 +1898,92 @@ footer.app-footer {
   background: rgba(47, 224, 168, 0.14);
   color: var(--accent);
 }
+
+/* ---------- Input guide: grouped-by-tool source cards ---------- */
+.guide-tool-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.guide-tool-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.guide-tool-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-dim);
+  border: 1px solid rgba(47, 224, 168, 0.35);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.guide-tool-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.guide-source-card {
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 13px;
+}
+.guide-source-card + .guide-source-card {
+  margin-top: 8px;
+}
+.guide-source-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.guide-source-report {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.guide-source-cols {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 2fr;
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  .guide-source-cols {
+    grid-template-columns: 1fr;
+  }
+}
+.guide-source-col-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 4px;
+}
+.guide-source-filename code {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+.guide-source-path ol {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.guide-source-path li {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}

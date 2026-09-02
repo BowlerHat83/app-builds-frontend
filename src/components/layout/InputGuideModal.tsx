@@ -20,6 +20,7 @@ const FIELDS: FieldRef[] = [
   { name: "target_url", required: true, note: "The site being audited." },
   { name: "business_name", required: false, note: "Auto-detected from the target site if left blank." },
   { name: "target_location", required: false, note: "Auto-detected from the target site if left blank." },
+  { name: "core_offering", required: false, note: "Drives Topic 6's map-pack keyword set. Leave blank to fall back to the old branded-keyword check." },
 ];
 
 // Fixed display order + a short 2-letter badge for each source tool, since

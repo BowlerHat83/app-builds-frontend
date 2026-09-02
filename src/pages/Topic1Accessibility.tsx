@@ -153,7 +153,9 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
               <Tip text="How many distinct issue types were found at each severity level - matches the counts below." />
             </p>
             {wcagCounts!.critical + wcagCounts!.serious + wcagCounts!.moderate + wcagCounts!.minor === 0 ? (
-              <p className="note-text">No accessibility issues detected at any severity.</p>
+              <DistributionBar
+                segments={[{ label: "No issues", value: 1, color: "var(--accent-green, #22c55e)" }]}
+              />
             ) : (
               <DistributionBar
                 segments={[

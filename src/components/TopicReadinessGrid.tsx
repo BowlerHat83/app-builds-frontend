@@ -12,19 +12,13 @@ function stateFor(metCount: number, totalCount: number): "full" | "partial" | "e
 
 export default function TopicReadinessGrid({ readiness }: TopicReadinessGridProps) {
   return (
-    <div className="readiness-grid">
-      {readiness.map((t) => {
+    <div className="readiness-compact-grid">
+      {readiness.map((t, i) => {
         const state = stateFor(t.metCount, t.totalCount);
-        const pct = t.totalCount ? (t.metCount / t.totalCount) * 100 : 0;
+        const tooltip = `${t.label}\n${t.parts.map((p) => `${p.met ? "✓" : "○"} ${p.label}`).join("\n")}`;
         return (
-          <div key={t.key} className={`readiness-box readiness-${state}`} title={t.parts.map((p) => `${p.met ? "✓" : "○"} ${p.label}`).join("\n")}>
-            <div className="readiness-box-bar">
-              <div className="readiness-box-fill" style={{ width: `${pct}%` }} />
-            </div>
-            <span className="readiness-box-label">{t.label}</span>
-            <span className="readiness-box-count">
-              {t.metCount}/{t.totalCount} ready
-            </span>
+          <div key={t.key} className={`readiness-square readiness-${state}`} title={tooltip}>
+            {i + 1}
           </div>
         );
       })}

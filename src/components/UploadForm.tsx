@@ -7,6 +7,7 @@ import { computeTopicReadiness, computeMissingFileInputs } from "../lib/topicRea
 import TopicReadinessGrid from "./TopicReadinessGrid";
 import InputGuideModal from "./layout/InputGuideModal";
 import MissingInputsModal from "./MissingInputsModal";
+import Tip from "./ui/Tip";
 
 interface UnmatchedFile {
   id: string;
@@ -180,7 +181,10 @@ export default function UploadForm({ onResult }: UploadFormProps) {
                 />
               </div>
               <div className="field">
-                <label htmlFor="core_offering">Core offering</label>
+                <label htmlFor="core_offering">
+                  Core offering
+                  <Tip text="Drives Topic 6's map-pack keyword set (the offering, plus a handful of real customer-search variations) instead of testing rank against your business name - a branded search almost always already ranks, which otherwise skews that score. Leave blank to fall back to the old branded-keyword check." />
+                </label>
                 <input
                   id="core_offering"
                   type="text"
@@ -190,43 +194,30 @@ export default function UploadForm({ onResult }: UploadFormProps) {
                 />
               </div>
             </div>
-            <p className="field-row-hint">
-              Core offering drives Topic 6&apos;s map-pack keyword set (the offering, plus a handful of real
-              customer-search variations) instead of testing rank against your business name - a branded search
-              almost always already ranks, which otherwise skews that score. Leave blank to fall back to the old
-              branded-keyword check.
-            </p>
 
             <div className="field-row checkbox-row">
-              <label className="checkbox-field">
-                <input
-                  type="checkbox"
-                  checked={!!fields.enable_topic6_screenshot}
-                  onChange={() => toggleField("enable_topic6_screenshot")}
-                />
-                <span>
-                  Capture Google Business Profile screenshot (Topic 6)
-                  <span className="checkbox-hint">
-                    Real-browser page load - off by default, since this has previously crashed the live backend
-                    under memory pressure. Turn on if you need the visual for this run.
-                  </span>
-                </span>
-              </label>
-              <label className="checkbox-field">
-                <input
-                  type="checkbox"
-                  checked={!!fields.enable_topic7_screenshots}
-                  onChange={() => toggleField("enable_topic7_screenshots")}
-                />
-                <span>
-                  Crawl for &amp; screenshot forms (Topic 7)
-                  <span className="checkbox-hint">
-                    Real-browser crawl across up to 30 pages - off by default for the same reason. Unique forms,
-                    CTA counts and placement guidance are also skipped while this is off; thin content analysis
-                    isn't affected either way.
-                  </span>
-                </span>
-              </label>
+              <div className="checkbox-field-wrap">
+                <label className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={!!fields.enable_topic6_screenshot}
+                    onChange={() => toggleField("enable_topic6_screenshot")}
+                  />
+                  <span>Capture Google Business Profile screenshot (Topic 6)</span>
+                </label>
+                <Tip text="Real-browser page load - off by default, since this has previously crashed the live backend under memory pressure. Turn on if you need the visual for this run." />
+              </div>
+              <div className="checkbox-field-wrap">
+                <label className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={!!fields.enable_topic7_screenshots}
+                    onChange={() => toggleField("enable_topic7_screenshots")}
+                  />
+                  <span>Crawl for &amp; screenshot forms (Topic 7)</span>
+                </label>
+                <Tip text="Real-browser crawl across up to 30 pages - off by default for the same reason. Unique forms, CTA counts and placement guidance are also skipped while this is off; thin content analysis isn't affected either way." />
+              </div>
             </div>
           </div>
 

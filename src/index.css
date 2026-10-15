@@ -2057,3 +2057,15 @@ footer.app-footer {
 .audit-input-label { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; }
 .audit-input-value { font-size: 16px; font-weight: 600; color: var(--text-primary); }
 .audit-input-source { font-size: 12px; color: var(--text-secondary); }
+
+/* ---------- Intake screen 2: inputs still needed ---------- */
+.inputs-needed { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-alt); }
+.inputs-needed-heading { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin: 0 0 8px; }
+.inputs-needed-group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.inputs-needed-group li { display: flex; gap: 8px; font-size: 13px; color: var(--text-primary); }
+.inputs-needed-dot { width: 14px; flex: 0 0 14px; color: var(--text-tertiary); }
+.inputs-needed-dot.optional { color: var(--accent-amber); font-weight: 700; }
+.inputs-needed-topics { color: var(--text-tertiary); font-size: 12px; }
+.inputs-needed-note { font-size: 12px; color: var(--text-secondary); margin: 8px 0 0; line-height: 1.45; }
+.inputs-needed-done { margin: 14px 0 0; font-size: 13px; color: var(--accent); }
+.inputs-uploaded { margin: 8px 0 0; font-size: 12px; color: var(--text-tertiary); }

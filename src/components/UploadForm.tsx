@@ -33,6 +33,11 @@ function normaliseUrl(u: string): string {
   return /^https?:\/\//i.test(t) ? t : `https://${t}`;
 }
 
+function topicLabel(topics: string[]): string {
+  const nums = topics.map((t) => t.replace("topic", ""));
+  return nums.length > 1 ? `Topics ${nums.slice(0, -1).join(", ")} & ${nums[nums.length - 1]}` : `Topic ${nums[0]}`;
+}
+
 function timeAgo(iso: string): string {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
   if (mins < 1) return "just now";
@@ -187,7 +192,11 @@ export default function UploadForm({ onResult }: UploadFormProps) {
 
   const readiness = computeTopicReadiness(fields, files, apiSlots);
   const filledSlots = SLOTS.filter((s) => files[s.key]);
-  const apiOnlySlots = SLOTS.filter((s) => !files[s.key] && apiSlots[s.key]);
+  // Below the drop zone: only what's still outstanding (the topic cards
+  // already show everything that's covered). SpyFu is listed separately as
+  // recommended-but-optional, since Topic 5 falls back to an Ahrefs estimate.
+  const waitingSlots = SLOTS.filter((s) => !files[s.key] && !apiSlots[s.key]);
+  const recommendedSlots = SLOTS.filter((s) => !files[s.key] && apiSlots[s.key] === "estimate");
 
   if (step === 1) {
     return (
@@ -298,26 +307,54 @@ export default function UploadForm({ onResult }: UploadFormProps) {
               <input ref={fileInputRef} type="file" accept=".csv" multiple onChange={handleBrowsePick} />
             </div>
 
-            {(filledSlots.length > 0 || apiOnlySlots.length > 0) && (
-              <div className="slot-chip-row">
-                {apiOnlySlots.map((s) => (
-                  <span
-                    key={s.key}
-                    className={`slot-chip ${apiSlots[s.key] === "estimate" ? "estimate" : "filled"}`}
-                    title={apiSlots[s.key] === "estimate" ? "Not uploaded - an Ahrefs-based estimate is used instead. Upload the CSV for full data." : "No upload needed - pulled automatically from the API. Uploading a CSV overrides it."}
-                  >
-                    {apiSlots[s.key] === "estimate" ? "≈" : "⚡"} {s.label} ({apiSlots[s.key] === "estimate" ? "Ahrefs estimate" : "auto via API"})
-                  </span>
-                ))}
-                {filledSlots.map((s) => (
-                  <span key={s.key} className="slot-chip filled">
-                    ✓ {s.label}
-                    <button type="button" onClick={() => removeFile(s.key)} aria-label={`Remove ${s.label}`}>
-                      ×
-                    </button>
-                  </span>
-                ))}
+            {(waitingSlots.length > 0 || recommendedSlots.length > 0) ? (
+              <div className="inputs-needed">
+                {waitingSlots.length > 0 && (
+                  <div className="inputs-needed-group">
+                    <p className="inputs-needed-heading">Still waiting for</p>
+                    <ul>
+                      {waitingSlots.map((s) => (
+                        <li key={s.key}>
+                          <span className="inputs-needed-dot">○</span>
+                          <span>
+                            <strong>{s.label}</strong> <span className="inputs-needed-topics">· {topicLabel(s.topics)}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {recommendedSlots.length > 0 && (
+                  <div className="inputs-needed-group">
+                    <p className="inputs-needed-heading">Recommended (optional)</p>
+                    <ul>
+                      {recommendedSlots.map((s) => (
+                        <li key={s.key}>
+                          <span className="inputs-needed-dot optional">+</span>
+                          <span>
+                            <strong>SpyFu {s.label}</strong> <span className="inputs-needed-topics">· {topicLabel(s.topics)}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="inputs-needed-note">
+                      Not required - without these, Topic 5 uses an Ahrefs estimate, which usually understates real paid
+                      activity. Upload them for full paid keyword, CPC and competitor data.
+                    </p>
+                  </div>
+                )}
               </div>
+            ) : (
+              <p className="inputs-needed-done">✓ Every input is covered - ready to run.</p>
+            )}
+            {filledSlots.length > 0 && (
+              <p className="inputs-uploaded">
+                {filledSlots.length} file{filledSlots.length === 1 ? "" : "s"} uploaded - dropping a new export for the same
+                topic replaces it.{" "}
+                <button type="button" className="link-btn" onClick={() => setFiles({})}>
+                  Clear uploads
+                </button>
+              </p>
             )}
 
             {unmatched.length > 0 && (

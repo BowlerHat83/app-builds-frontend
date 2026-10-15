@@ -24,7 +24,7 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
       key: "impact",
       header: "Impact",
       render: (r) => {
-        const tone = r.impact === "Critical" ? "bad" : r.impact === "Serious" ? "warn" : "neutral";
+        const tone = r.impact === "Critical" || r.impact === "Level A" ? "bad" : r.impact === "Serious" || r.impact === "Level AA" ? "warn" : "neutral";
         return <Badge tone={tone as "bad" | "warn" | "neutral"}>{r.impact}</Badge>;
       },
     },
@@ -68,6 +68,7 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
   // real counts, which read as a mismatch against the boxes even though
   // both numbers were individually correct - just different units. Real
   // counts only, now, for one consistent picture.
+  const crit = wcag?.criteria ?? null;
   const wcagCounts = wcag
     ? {
         critical: wcag.by_impact.critical,
@@ -140,12 +141,43 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
         sectionLabel="WCAG Accessibility Issues"
         right={
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Tip text="0–100 accessibility score derived from the number and severity of WCAG issues found on the page." />
+            <Tip text={crit ? "WCAG 2.2 scanner: criteria met out of criteria decided (to-confirm items left out)." : "0–100 accessibility score derived from the number and severity of WCAG issues found on the page."} />
             <GaugeRing value={wcag?.score ?? null} size={64} strokeWidth={6} unit="SCORE" />
           </div>
         }
       >
-        {wcag && (
+        {crit && (
+          <>
+            <div style={{ marginBottom: 18 }}>
+              <p className="section-label" style={{ marginBottom: 8 }}>
+                WCAG 2.2 AA criteria
+                <Tip text="Verdicts from the WCAG 2.2 scanner across every page type it tested. The score is criteria met out of criteria decided - 'to confirm' needs a person and is left out." />
+              </p>
+              <DistributionBar
+                segments={[
+                  { label: "Met", value: crit.passed, color: "var(--accent-green, #22c55e)" },
+                  { label: "Not met", value: crit.failed, color: "var(--accent-red)" },
+                  { label: "To confirm", value: crit.inconclusive, color: "var(--accent-amber)" },
+                  { label: "Not applicable", value: crit.not_applicable, color: "var(--text-tertiary)" },
+                ]}
+              />
+            </div>
+            <div className="grid grid-4" style={{ marginBottom: 18 }}>
+              {[
+                ["Met", crit.passed, "var(--accent-green, #22c55e)"],
+                ["Not met", crit.failed, "var(--accent-red)"],
+                ["To confirm", crit.inconclusive, "var(--accent-amber)"],
+                ["Not applicable", crit.not_applicable, "var(--text-tertiary)"],
+              ].map(([label, value, color]) => (
+                <div key={label as string} className="stat-card" style={{ alignItems: "center", textAlign: "center" }}>
+                  <span className="stat-card-label">{label}</span>
+                  <span className="stat-card-value" style={{ color: color as string }}>{fmtInt(value as number)}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {wcag && !crit && (
           <div style={{ marginBottom: 18 }}>
             <p className="section-label" style={{ marginBottom: 8 }}>
               Issue Breakdown by Severity
@@ -167,6 +199,7 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
             )}
           </div>
         )}
+        {!crit && (
         <div className="grid grid-4" style={{ marginBottom: 18 }}>
           <div className="stat-card" style={{ alignItems: "center", textAlign: "center" }}>
             <span className="stat-card-label">Critical</span>
@@ -185,8 +218,9 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
             <span className="stat-card-value" style={{ color: "var(--accent-blue)" }}>{fmtInt(wcag?.by_impact?.minor)}</span>
           </div>
         </div>
+        )}
         <DataTable columns={issueColumns} rows={wcag?.issues ?? []} emptyMessage="No WCAG issues detected" maxHeight={260} />
-        {wcag?.total_occurrences != null && wcag.total_occurrences !== wcag.total_issues && (
+        {!crit && wcag?.total_occurrences != null && wcag.total_occurrences !== wcag.total_issues && (
           <p className="note-text">
             {fmtInt(wcag.total_issues)} distinct issue type{wcag.total_issues === 1 ? "" : "s"} found, affecting {fmtInt(wcag.total_occurrences)} element{wcag.total_occurrences === 1 ? "" : "s"} in total — the "Count" column above shows how many elements each row covers.
           </p>

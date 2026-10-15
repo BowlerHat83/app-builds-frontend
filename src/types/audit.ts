@@ -89,6 +89,24 @@ export interface WcagIssue {
   impact: string;
   element?: string;
   occurrences?: number;
+  pages?: number; // WCAG scanner: pages affected
+  fixes?: number; // WCAG scanner: distinct fixes (components)
+}
+
+// Present when Topic 1's accessibility results came from the WCAG 2.2
+// scanner (criteria verdicts across many pages) rather than the quick
+// axe-core homepage check.
+export interface WcagCriteriaSummary {
+  passed: number;
+  failed: number;
+  inconclusive: number;
+  not_applicable: number;
+  components: number;
+  pages_tested?: number | null;
+  pages_crawled?: number | null;
+  scanned_at?: string | null;
+  stale?: boolean;
+  scan_id?: string;
 }
 
 export interface WcagAccessibility {
@@ -104,6 +122,7 @@ export interface WcagAccessibility {
     minor: number;
   };
   issues: WcagIssue[];
+  criteria?: WcagCriteriaSummary | null;
 }
 
 export interface CookieDetected {

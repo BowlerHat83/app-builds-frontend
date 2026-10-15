@@ -191,7 +191,16 @@ function assessTopics(r: MasterAuditResults): TopicFinding[] {
     const points: string[] = [];
     const facts: string[] = [];
     const w = d?.wcag_accessibility;
-    if (w) {
+    if (w?.criteria) {
+      const c = w.criteria;
+      const applicable = c.passed + c.failed + c.inconclusive;
+      facts.push(`WCAG 2.2 standards met: ${c.passed} of ${applicable}`);
+      points.push(
+        c.failed > 0
+          ? `We tested ${c.pages_tested ?? "a sample of"} pages against the ${applicable} WCAG 2.2 AA accessibility standards that apply to your site. It meets ${c.passed}, doesn't yet meet ${c.failed}, and ${c.inconclusive} need checking by hand. Unmet standards can stop disabled visitors using parts of the site.`
+          : `Your site meets every WCAG 2.2 AA standard our tests could decide, with ${c.inconclusive} left to check by hand.`
+      );
+    } else if (w) {
       const severe = (w.by_impact?.critical ?? 0) + (w.by_impact?.serious ?? 0);
       facts.push(`Accessibility score: ${Math.round(w.score)}/100`);
       points.push(
@@ -392,6 +401,10 @@ function assessTopics(r: MasterAuditResults): TopicFinding[] {
           ? kw && kw.total_keywords === 0
             ? "No paid search activity found"
             : "Not assessed this time"
+          : kw && kw.total_keywords === 0
+          ? comps.length && Math.max(...comps.map((c) => c.monthly_ad_budget ?? 0)) < 500
+            ? "No paid search yet, and competitors are barely advertising: an open opportunity"
+            : "You're not running paid search, but competitors are"
           : score >= 80
           ? "You're competing well in paid search"
           : "Competitors are out-advertising you",
@@ -501,7 +514,16 @@ function detailTables(r: MasterAuditResults, n: number): string {
   const h = (t: string) => `<h4>${esc(t)}</h4>`;
   if (n === 1) {
     const w = r.topic1_technical?.data?.wcag_accessibility;
-    if (w?.issues?.length)
+    if (w?.criteria && w.issues?.length)
+      parts.push(
+        h("WCAG 2.2 standards not yet met"),
+        table(
+          ["Standard", "Level", "Pages affected", "Instances"],
+          w.issues.map((i) => [`${i.code} ${i.description}`, (i.impact || "").replace("Level ", ""), fmtInt(i.pages ?? 0), fmtInt(i.occurrences ?? 0)]),
+          [2, 3]
+        )
+      );
+    else if (w?.issues?.length)
       parts.push(h("Accessibility problems found"), table(["Problem", "Severity"], w.issues.slice(0, 15).map((i) => [i.description, i.impact])));
   }
   if (n === 2) {
@@ -572,7 +594,7 @@ function detailTables(r: MasterAuditResults, n: number): string {
         h("By AI assistant"),
         table(
           ["Assistant", "Questions tracked", "Sources citing you"],
-          d.engine_visibility.engine_visibility_breakdown.map((e) => [e.engine.charAt(0).toUpperCase() + e.engine.slice(1), e.keyword_count, e.source_count]),
+          d.engine_visibility.engine_visibility_breakdown.map((e) => [ENGINE_NAMES[e.engine.toLowerCase()] ?? e.engine.charAt(0).toUpperCase() + e.engine.slice(1), e.keyword_count, e.source_count]),
           [1, 2]
         )
       );
@@ -636,6 +658,8 @@ function detailTables(r: MasterAuditResults, n: number): string {
 
 // ---------- HTML ----------
 
+const ENGINE_NAMES: Record<string, string> = { chatgpt: "ChatGPT", gemini: "Gemini", claude: "Claude", sonar: "Perplexity", perplexity: "Perplexity", copilot: "Copilot" };
+
 const PRIO_LABEL: Record<Prio, string> = { first: "Fix first", next: "Fix next", keep: "Keep it up" };
 
 export async function buildClientReport(audit: MasterAuditResponse, opts: ClientReportOptions): Promise<string> {
@@ -679,17 +703,23 @@ export async function buildClientReport(audit: MasterAuditResponse, opts: Client
   const focusTechnical =
     tech.score !== null && (lowestIsTechnical || (visibilityAvg !== null && tech.score < visibilityAvg && tech.score < 80));
   const weakestVisibility = [...visibility].sort((a, b) => (a.score as number) - (b.score as number))[0];
-  const focusTitle = focusTechnical ? "Technical foundations" : "SEO, AI & PPC together";
+  // SEO, AI and PPC are unified, but one of them can still be the primary
+  // cause: without it, the other two suffer. Name it when it isn't strong.
+  const primary = !focusTechnical && weakestVisibility && (weakestVisibility.score as number) < 80 ? weakestVisibility : null;
+  const PRIMARY_TITLE: Record<string, string> = { seo: "SEO", ai: "AI search", ppc: "Paid search (PPC)" };
+  const PRIMARY_NAME: Record<string, string> = { seo: "SEO", ai: "AI search visibility", ppc: "Paid search" };
+  const others = (k: string) => listJoin(groups.slice(1).filter((g) => g.key !== k).map((g) => (g.key === "ai" ? "AI search" : g.label)));
+  const focusTitle = focusTechnical ? "Technical foundations" : primary ? PRIMARY_TITLE[primary.key] : "SEO, AI & PPC together";
   const focusText = focusTechnical
     ? "Your website's accessibility, speed and technical set-up are what's holding the rest back. Fixing these first means every pound spent on SEO, AI and paid search works harder."
-    : `The technical foundations are ${tech.score !== null && tech.score >= 80 ? "solid" : "in reasonable shape"}. The next gains come from SEO, AI search and paid search working together${
-        weakestVisibility ? `, starting with ${weakestVisibility.desc}, the weakest of the three` : ""
-      }.`;
-  const focusPill = (g: (typeof groups)[number], on: boolean) =>
-    `<span class="${on ? "on" : ""}"><b>${g.label}</b><small>${g.score ?? "–"}</small></span>`;
-  const focusDial = `<div class="focus" aria-hidden="true">${focusPill(tech, focusTechnical)}<div class="together${focusTechnical ? "" : " on"}">${groups
+    : primary
+    ? `${PRIMARY_NAME[primary.key]} is the main thing holding you back. SEO, AI search and paid search work hand in hand: without it, ${others(primary.key)} can't reach their potential either.`
+    : "SEO, AI search and paid search are all in good shape. The next gains come from keeping them working together, so each one strengthens the others.";
+  const focusPill = (g: (typeof groups)[number], cls: string) =>
+    `<span class="${cls}"><b>${g.label}</b><small>${g.score ?? "–"}</small></span>`;
+  const focusDial = `<div class="focus" aria-hidden="true">${focusPill(tech, focusTechnical ? "on" : "")}<div class="together${focusTechnical ? "" : " on"}">${groups
     .slice(1)
-    .map((g) => focusPill(g, !focusTechnical))
+    .map((g) => focusPill(g, focusTechnical ? "" : primary ? (g.key === primary.key ? "on" : "soft") : "on"))
     .join("")}<em>Working together</em></div></div>`;
 
   const worstFirst = [...scored].sort((a, b) => {
@@ -776,7 +806,7 @@ h1,h2,h3,h4{font-family:var(--font);font-weight:700;margin:0;text-wrap:balance;c
 .bar{display:flex;height:14px;border-radius:3px;overflow:hidden;gap:2px}.bar span{display:block}
 .keys{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:14px;color:var(--ink-2)}.keys i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}.keys b{color:var(--ink)}
 .dial{display:flex;gap:6px}.dial span{flex:1;text-align:center;font-size:13.5px;font-weight:700;padding:7px 0;border-radius:3px;background:var(--ground);color:var(--ink-3);border:2px solid transparent}
-.focus{display:flex;gap:6px;align-items:stretch}.focus span{flex:1;display:grid;justify-items:center;gap:0;padding:7px 0;border-radius:3px;background:var(--ground);color:var(--ink-3);font-size:13.5px;line-height:1.3}.focus span small{font-size:12px;font-weight:700;opacity:.8}.focus span.on{background:var(--accent);color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}\n.together{flex:3;display:flex;gap:6px;position:relative;padding-bottom:18px}.together em{position:absolute;left:0;right:0;bottom:0;text-align:center;font-style:normal;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border-top:2px solid var(--rule);padding-top:2px}.together.on em{color:var(--accent);border-color:var(--accent)}.focus>span{margin-bottom:18px}.focus-a{color:var(--accent)!important}
+.focus{display:flex;gap:6px;align-items:stretch}.focus span{flex:1;display:grid;justify-items:center;gap:0;padding:7px 0;border-radius:3px;background:var(--ground);color:var(--ink-3);font-size:13.5px;line-height:1.3}.focus span small{font-size:12px;font-weight:700;opacity:.8}.focus span.on{background:var(--accent);color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.focus span.soft{background:var(--accent-soft);color:var(--accent);-webkit-print-color-adjust:exact;print-color-adjust:exact}\n.together{flex:3;display:flex;gap:6px;position:relative;padding-bottom:18px}.together em{position:absolute;left:0;right:0;bottom:0;text-align:center;font-style:normal;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border-top:2px solid var(--rule);padding-top:2px}.together.on em{color:var(--accent);border-color:var(--accent)}.focus>span{margin-bottom:18px}.focus-a{color:var(--accent)!important}
 section{display:grid;gap:16px}section>h2{font-size:28px;line-height:1.15}section>h2::after{content:"";display:block;width:56px;height:4px;background:var(--hl);margin-top:10px;border-radius:2px}
 section>p{max-width:64ch;color:var(--ink-2)}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}

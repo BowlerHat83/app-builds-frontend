@@ -4,7 +4,8 @@ import type { MasterAuditResponse } from "../types/audit";
 import { startAuditJob, fetchIntegrationStatus, detectBusiness } from "../api/client";
 import { classifyFile, SLOTS, SlotKey } from "../lib/fileClassifier";
 import { computeTopicReadiness, computeMissingFileInputs, ApiSlots } from "../lib/topicReadiness";
-import { listRecentRuns, loadRecentRun, deleteRecentRun, RecentRunMeta } from "../lib/recentRuns";
+import { listRecentRuns, loadRecentRun, deleteRecentRun, RecentRunMeta, TOPIC_SHORT, siteKey } from "../lib/recentRuns";
+import { gradeFromScore } from "../lib/scoring";
 import TopicReadinessGrid from "./TopicReadinessGrid";
 import InputGuideModal from "./layout/InputGuideModal";
 import MissingInputsModal from "./MissingInputsModal";
@@ -36,6 +37,19 @@ function normaliseUrl(u: string): string {
 function topicLabel(topics: string[]): string {
   const nums = topics.map((t) => t.replace("topic", ""));
   return nums.length > 1 ? `Topics ${nums.slice(0, -1).join(", ")} & ${nums[nums.length - 1]}` : `Topic ${nums[0]}`;
+}
+
+function scoreTone(score: number | null | undefined): string {
+  if (score == null) return "none";
+  if (score >= 80) return "good";
+  if (score >= 60) return "ok";
+  if (score >= 50) return "warn";
+  return "bad";
+}
+
+function fmtScanned(iso: string): string {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}, ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 function timeAgo(iso: string): string {
@@ -82,7 +96,11 @@ export default function UploadForm({ onResult }: UploadFormProps) {
   // ---------- Screen 1 ----------
   const handleNext = async (e: React.FormEvent) => {
     e.preventDefault();
-    const target = normaliseUrl(url);
+    await startDetect(url);
+  };
+
+  const startDetect = async (rawUrl: string) => {
+    const target = normaliseUrl(rawUrl);
     if (!target) {
       setError("Enter the website URL to audit.");
       return;
@@ -225,21 +243,53 @@ export default function UploadForm({ onResult }: UploadFormProps) {
             {recent.length === 0 ? (
               <p className="recent-empty">No saved audits in this browser yet - finished audits appear here so you can reopen them.</p>
             ) : (
-              <ul className="recent-list">
-                {recent.map((r) => (
-                  <li key={r.id} className="recent-item">
-                    <button type="button" className="recent-open" onClick={() => openRecent(r.id)}>
-                      <span className="recent-name">{r.business_name || r.target_url.replace(/^https?:\/\//, "")}</span>
-                      <span className="recent-meta">
-                        {r.target_url.replace(/^https?:\/\//, "")} · {timeAgo(r.saved_at)}
-                      </span>
-                    </button>
-                    {r.composite != null && <span className="recent-score">{Math.round(r.composite)}</span>}
-                    <button type="button" className="link-btn" aria-label="Remove" onClick={() => setRecent(deleteRecentRun(r.id))}>
-                      ×
-                    </button>
-                  </li>
-                ))}
+              <ul className="recent-grid">
+                {recent.map((r) => {
+                  const overall = r.composite != null ? Math.round(r.composite) : null;
+                  const scored = (r.topics ?? []).filter((s) => s != null).length;
+                  return (
+                    <li key={r.id} className="recent-card">
+                      <div className="recent-card-head">
+                        <div className="recent-card-title">
+                          <span className="recent-name">{siteKey(r.target_url)}</span>
+                          {r.business_name && <span className="recent-meta">{r.business_name}</span>}
+                        </div>
+                        <span className={`recent-overall tone-${scoreTone(overall)}`} title="Overall score">
+                          {overall ?? "–"}
+                          <small>{gradeFromScore(overall).grade}</small>
+                        </span>
+                        <button type="button" className="recent-remove" aria-label="Remove" title="Remove" onClick={() => setRecent(deleteRecentRun(r.id))}>
+                          ×
+                        </button>
+                      </div>
+                      <div className="recent-topics">
+                        {TOPIC_SHORT.map((name, i) => {
+                          const s = r.topics?.[i] ?? null;
+                          return (
+                            <div key={name} className={`recent-topic tone-${scoreTone(s)}`} title={`Topic ${i + 1}: ${name} - ${s == null ? "not scored" : s}`}>
+                              <span className="recent-topic-score">{s ?? "–"}</span>
+                              <span className="recent-topic-name">{name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="recent-stats">
+                        <strong>{scored}</strong> of 7 topics scored
+                      </p>
+                      <p className="recent-meta">
+                        Audited {fmtScanned(r.saved_at)} · {timeAgo(r.saved_at)}
+                      </p>
+                      <div className="recent-actions">
+                        <button type="button" className="btn btn-ghost recent-btn" onClick={() => openRecent(r.id)}>
+                          Open results
+                        </button>
+                        <button type="button" className="btn btn-ghost recent-btn" disabled={detecting} onClick={() => { setUrl(r.target_url); void startDetect(r.target_url); }}>
+                          Run again
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

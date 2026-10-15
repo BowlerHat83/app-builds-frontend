@@ -1,5 +1,14 @@
 import type { MasterAuditResponse } from "../types/audit";
-import { computeCompositeScore } from "./scoring";
+import {
+  computeCompositeScore,
+  scoreTopic1,
+  scoreTopic2,
+  scoreTopic3,
+  scoreTopic4,
+  scoreTopic5,
+  scoreTopic6,
+  scoreTopic7,
+} from "./scoring";
 
 // "Recent runs" on intake screen 1. The backend keeps jobs in memory only
 // (they vanish when Cloud Run scales down or redeploys), so finished audits
@@ -18,6 +27,26 @@ export interface RecentRunMeta {
   business_name: string | null;
   saved_at: string; // ISO date
   composite: number | null;
+  topics?: (number | null)[]; // Topic 1-7 scores, null = not scored this run
+}
+
+export const TOPIC_SHORT = ["Accessibility", "Performance", "Organic", "AI", "Paid", "Local", "Content"];
+
+const SCORERS = [scoreTopic1, scoreTopic2, scoreTopic3, scoreTopic4, scoreTopic5, scoreTopic6, scoreTopic7];
+
+function topicScores(audit: MasterAuditResponse): (number | null)[] {
+  return SCORERS.map((fn) => {
+    try {
+      const s = fn(audit.master_audit_results).score;
+      return s === null ? null : Math.round(s);
+    } catch {
+      return null;
+    }
+  });
+}
+
+export function siteKey(url: string): string {
+  return url.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/.*$/, "").toLowerCase();
 }
 
 function readIndex(): RecentRunMeta[] {
@@ -39,7 +68,20 @@ function writeIndex(index: RecentRunMeta[]): void {
 }
 
 export function listRecentRuns(): RecentRunMeta[] {
-  return readIndex();
+  // Runs saved before per-topic scores were stored: work them out once from
+  // the saved result and keep them on the index.
+  const index = readIndex();
+  let changed = false;
+  for (const meta of index) {
+    if (meta.topics) continue;
+    const run = loadRecentRun(meta.id);
+    if (run) {
+      meta.topics = topicScores(run);
+      changed = true;
+    }
+  }
+  if (changed) writeIndex(index);
+  return index;
 }
 
 export function loadRecentRun(id: string): MasterAuditResponse | null {
@@ -80,11 +122,21 @@ export function saveRecentRun(audit: MasterAuditResponse): void {
     business_name: businessName,
     saved_at: new Date().toISOString(),
     composite,
+    topics: topicScores(audit),
   };
 
   // Already saved (e.g. reopening a recent run) - leave its position and date alone
   if (readIndex().some((r) => r.id === id)) return;
+  // Keep only the latest run per site - an older run of the same domain is replaced.
   let index = readIndex().filter((r) => r.id !== id);
+  for (const old of index.filter((r) => siteKey(r.target_url) === siteKey(audit.target_url))) {
+    try {
+      localStorage.removeItem(RUN_KEY(old.id));
+    } catch {
+      /* ignore */
+    }
+  }
+  index = index.filter((r) => siteKey(r.target_url) !== siteKey(audit.target_url));
   index.unshift(meta);
   // Drop the oldest beyond MAX_RUNS
   for (const old of index.slice(MAX_RUNS)) {

@@ -230,35 +230,55 @@ export function scoreTopic7(results: MasterAuditResults): TopicScore {
 // them - scores low rather than showing blank, since that's a genuinely
 // weak result, not a missing one.
 export function scoreTopic5(results: MasterAuditResults): TopicScore {
+  // Two parts, so one giant competitor (or a thin export) can't sink the
+  // score to ~0 on its own:
+  //   - Presence (40): is the client actually running paid search?
+  //   - Reach (60): the client's keywords, clicks and spend against the
+  //     MEDIAN competitor, on a log scale - 1/100th of the median = 0,
+  //     1/10th = 50, level or ahead = 100. Previously a straight linear
+  //     ratio against the mean, so being 1/1000th the size of DP World
+  //     scored the same as running no ads at all.
+  // The client's own domain is ignored if it appears in the competitor list.
   const data = results.topic5_paid_visibility?.data;
   const kw = data?.keywords;
   const comp = data?.competitor_share;
   const label = "Paid Search Competitive Standing";
   if (!kw || !comp || !comp.competitor_share_breakdown?.length) return { score: null, label };
 
-  const meanOf = (values: (number | null | undefined)[]): number | null => {
-    const present = values.filter((v): v is number => v != null && !Number.isNaN(v) && v > 0);
-    if (!present.length) return null;
-    return present.reduce((a, b) => a + b, 0) / present.length;
+  const own = (results.topic1_technical?.data?.target_url || results.topic7_content_quality?.data?.target_url || "")
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .split("/")[0]
+    .toLowerCase();
+  const rivals = comp.competitor_share_breakdown.filter((c) => {
+    const host = (c.domain || "").replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0].toLowerCase();
+    return host !== own && (c.monthly_paid_keywords ?? 0) > 0;
+  });
+  if (!rivals.length) return { score: null, label };
+
+  const median = (values: (number | null | undefined)[]): number | null => {
+    const v = values.filter((x): x is number => x != null && !Number.isNaN(x) && x > 0).sort((a, b) => a - b);
+    if (!v.length) return null;
+    const m = Math.floor(v.length / 2);
+    return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+  };
+  const reachPart = (mine: number | null | undefined, theirs: number | null): number | null => {
+    if (theirs == null || theirs <= 0 || mine == null) return null;
+    if (mine <= 0) return 0;
+    return clamp(((Math.log10(mine / theirs) + 2) / 2) * 100);
   };
 
-  const avgCompetitorKeywords = meanOf(comp.competitor_share_breakdown.map((c) => c.monthly_paid_keywords));
-  const avgCompetitorClicks = meanOf(comp.competitor_share_breakdown.map((c) => c.monthly_paid_clicks));
-  const avgCompetitorBudget = meanOf(comp.competitor_share_breakdown.map((c) => c.monthly_ad_budget));
+  const running = (kw.total_keywords ?? 0) > 0;
+  const hasActivity = (kw.estimated_monthly_spend ?? 0) > 0 || (kw.total_monthly_clicks ?? 0) > 0;
+  const presence = running ? (hasActivity ? 40 : 20) : 0;
 
-  const ratioScore = (own: number | null | undefined, competitorAvg: number | null): number | null => {
-    if (own == null || competitorAvg == null || competitorAvg <= 0) return null;
-    return clamp((own / competitorAvg) * 50);
-  };
+  const reach = average([
+    reachPart(kw.total_keywords, median(rivals.map((c) => c.monthly_paid_keywords))),
+    reachPart(kw.total_monthly_clicks, median(rivals.map((c) => c.monthly_paid_clicks))),
+    reachPart(kw.estimated_monthly_spend, median(rivals.map((c) => c.monthly_ad_budget))),
+  ]);
 
-  const parts = [
-    ratioScore(kw.total_keywords, avgCompetitorKeywords),
-    ratioScore(kw.total_monthly_clicks, avgCompetitorClicks),
-    ratioScore(kw.estimated_monthly_spend, avgCompetitorBudget),
-  ];
-
-  const score = average(parts);
-  return { score: score !== null ? clamp(score) : null, label };
+  return { score: clamp(presence + (reach ?? 0) * 0.6), label };
 }
 
 export interface CompositeScore {

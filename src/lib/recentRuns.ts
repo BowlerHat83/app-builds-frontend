@@ -1,4 +1,5 @@
 import type { MasterAuditResponse } from "../types/audit";
+import { API_BASE_URL } from "../api/client";
 import {
   computeCompositeScore,
   scoreTopic1,
@@ -104,6 +105,75 @@ export function deleteRecentRun(id: string): RecentRunMeta[] {
   return next;
 }
 
+// ---------- Shared (online) runs ----------
+// Finished audits are also saved to the backend's shared store (a Cloud
+// Storage bucket - see backend app/common/run_store.py) so they show up in
+// any browser. localStorage above stays as an offline fallback / cache.
+
+export async function fetchSharedRuns(): Promise<RecentRunMeta[] | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/runs`);
+    if (!res.ok) return null;
+    const body = await res.json();
+    return body.enabled ? (body.runs as RecentRunMeta[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function openRun(id: string): Promise<MasterAuditResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/runs/${encodeURIComponent(id)}`);
+    if (res.ok) return (await res.json()) as MasterAuditResponse;
+  } catch {
+    /* fall back to this browser's copy */
+  }
+  return loadRecentRun(id);
+}
+
+export async function deleteRun(id: string): Promise<RecentRunMeta[]> {
+  const local = deleteRecentRun(id);
+  try {
+    await fetch(`${API_BASE_URL}/runs/${encodeURIComponent(id)}`, { method: "DELETE" });
+  } catch {
+    /* ignore */
+  }
+  return (await fetchSharedRuns()) ?? local;
+}
+
+async function saveShared(meta: RecentRunMeta, audit: MasterAuditResponse): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/runs`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ meta, audit }),
+    });
+  } catch {
+    /* offline or not configured - the local copy still exists */
+  }
+}
+
+// One-off upload of runs saved in this browser before shared storage
+// existed, so nothing already run is lost. Returns the refreshed shared list.
+export async function syncLocalToShared(shared: RecentRunMeta[]): Promise<RecentRunMeta[]> {
+  // Once per browser only - otherwise a run deleted for everyone would be
+  // re-uploaded by any browser that still had a local copy.
+  try {
+    if (localStorage.getItem("seoAudit.sharedSync.v1")) return shared;
+    localStorage.setItem("seoAudit.sharedSync.v1", new Date().toISOString());
+  } catch {
+    return shared;
+  }
+  const have = new Set(shared.map((r) => siteKey(r.target_url)));
+  const missing = readIndex().filter((r) => !have.has(siteKey(r.target_url)));
+  if (!missing.length) return shared;
+  for (const meta of missing.reverse()) {
+    const audit = loadRecentRun(meta.id);
+    if (audit) await saveShared({ ...meta, topics: meta.topics ?? topicScores(audit) }, audit);
+  }
+  return (await fetchSharedRuns()) ?? shared;
+}
+
 export function saveRecentRun(audit: MasterAuditResponse): void {
   const id = audit.job_id || `${Date.now()}`;
   const t6 = audit.master_audit_results?.topic6_local_visibility?.data;
@@ -127,6 +197,7 @@ export function saveRecentRun(audit: MasterAuditResponse): void {
 
   // Already saved (e.g. reopening a recent run) - leave its position and date alone
   if (readIndex().some((r) => r.id === id)) return;
+  void saveShared(meta, audit);
   // Keep only the latest run per site - an older run of the same domain is replaced.
   let index = readIndex().filter((r) => r.id !== id);
   for (const old of index.filter((r) => siteKey(r.target_url) === siteKey(audit.target_url))) {

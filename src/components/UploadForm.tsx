@@ -4,7 +4,7 @@ import type { MasterAuditResponse } from "../types/audit";
 import { startAuditJob, fetchIntegrationStatus, detectBusiness } from "../api/client";
 import { classifyFile, SLOTS, SlotKey } from "../lib/fileClassifier";
 import { computeTopicReadiness, computeMissingFileInputs, ApiSlots } from "../lib/topicReadiness";
-import { listRecentRuns, loadRecentRun, deleteRecentRun, RecentRunMeta, TOPIC_SHORT, siteKey } from "../lib/recentRuns";
+import { listRecentRuns, fetchSharedRuns, syncLocalToShared, openRun, deleteRun, RecentRunMeta, TOPIC_SHORT, siteKey } from "../lib/recentRuns";
 import { gradeFromScore } from "../lib/scoring";
 import TopicReadinessGrid from "./TopicReadinessGrid";
 import InputGuideModal from "./layout/InputGuideModal";
@@ -69,7 +69,7 @@ export default function UploadForm({ onResult }: UploadFormProps) {
   const [detected, setDetected] = useState<DetectResult | null>(null);
   const [overrides, setOverrides] = useState<Record<OverrideKey, string>>({ business_name: "", target_location: "", core_offering: "" });
   const [edited, setEdited] = useState<Record<OverrideKey, boolean>>({ business_name: false, target_location: false, core_offering: false });
-  const [toggles, setToggles] = useState({ enable_topic6_screenshot: false, enable_topic7_screenshots: false });
+  const [toggles, setToggles] = useState({ enable_topic6_screenshot: true, enable_topic7_screenshots: true }); // opt-out: both on by default
   const [files, setFiles] = useState<AuditFormFiles>({});
   const [unmatched, setUnmatched] = useState<UnmatchedFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
@@ -77,6 +77,20 @@ export default function UploadForm({ onResult }: UploadFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [showMissingModal, setShowMissingModal] = useState(false);
   const [recent, setRecent] = useState<RecentRunMeta[]>([]);
+  const [runMenu, setRunMenu] = useState<string | null>(null); // which card's ⋯ menu is open
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!runMenu) return;
+    const close = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest(".recent-menu-wrap")) {
+        setRunMenu(null);
+        setConfirmDelete(null);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [runMenu]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Slots the backend can fill from an API when no CSV is uploaded.
   const [integrations, setIntegrations] = useState<ApiSlots>({});
@@ -84,6 +98,13 @@ export default function UploadForm({ onResult }: UploadFormProps) {
   useEffect(() => {
     void fetchIntegrationStatus().then(setIntegrations);
     setRecent(listRecentRuns());
+    // Shared runs (any browser) replace this browser's list once loaded.
+    void fetchSharedRuns().then(async (shared) => {
+      if (!shared) return;
+      setRecent(shared);
+      const synced = await syncLocalToShared(shared);
+      if (synced !== shared) setRecent(synced);
+    });
   }, []);
 
   // BrightLocal is only "covered" if a Citation Tracker report actually
@@ -120,10 +141,10 @@ export default function UploadForm({ onResult }: UploadFormProps) {
     setStep(2);
   };
 
-  const openRecent = (id: string) => {
-    const run = loadRecentRun(id);
+  const openRecent = async (id: string) => {
+    const run = await openRun(id);
     if (run) onResult(run);
-    else setRecent(deleteRecentRun(id));
+    else setError("That saved run couldn't be opened - it may have been deleted.");
   };
 
   // ---------- Screen 2 ----------
@@ -241,7 +262,7 @@ export default function UploadForm({ onResult }: UploadFormProps) {
           <div className="intake-section">
             <p className="intake-section-label">Recent runs</p>
             {recent.length === 0 ? (
-              <p className="recent-empty">No saved audits in this browser yet - finished audits appear here so you can reopen them.</p>
+              <p className="recent-empty">No saved audits yet - finished audits appear here for everyone, so you can reopen them from any browser.</p>
             ) : (
               <ul className="recent-grid">
                 {recent.map((r) => {
@@ -258,9 +279,44 @@ export default function UploadForm({ onResult }: UploadFormProps) {
                           {overall ?? "–"}
                           <small>{gradeFromScore(overall).grade}</small>
                         </span>
-                        <button type="button" className="recent-remove" aria-label="Remove" title="Remove" onClick={() => setRecent(deleteRecentRun(r.id))}>
-                          ×
-                        </button>
+                        <div className="recent-menu-wrap">
+                          <button
+                            type="button"
+                            className="recent-menu-btn"
+                            aria-label="More options"
+                            aria-haspopup="menu"
+                            aria-expanded={runMenu === r.id}
+                            onClick={() => {
+                              setRunMenu(runMenu === r.id ? null : r.id);
+                              setConfirmDelete(null);
+                            }}
+                          >
+                            ⋯
+                          </button>
+                          {runMenu === r.id && (
+                            <div className="recent-menu" role="menu">
+                              {confirmDelete === r.id ? (
+                                <>
+                                  <p className="recent-menu-confirm">Delete this run? This can't be undone.</p>
+                                  <div className="recent-menu-row">
+                                    <button type="button" className="recent-menu-danger" onClick={() => {
+                                      setRunMenu(null);
+                                      setConfirmDelete(null);
+                                      void deleteRun(r.id).then(setRecent);
+                                    }}>
+                                      Delete
+                                    </button>
+                                    <button type="button" onClick={() => setConfirmDelete(null)}>Cancel</button>
+                                  </div>
+                                </>
+                              ) : (
+                                <button type="button" role="menuitem" className="recent-menu-danger" onClick={() => setConfirmDelete(r.id)}>
+                                  Delete run
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="recent-topics">
                         {TOPIC_SHORT.map((name, i) => {
@@ -436,14 +492,14 @@ export default function UploadForm({ onResult }: UploadFormProps) {
                   <input type="checkbox" checked={toggles.enable_topic6_screenshot} onChange={() => setToggles((t) => ({ ...t, enable_topic6_screenshot: !t.enable_topic6_screenshot }))} />
                   <span>Capture Google Business Profile screenshot (Topic 6)</span>
                 </label>
-                <Tip text="Real-browser page load - off by default, since this has previously crashed the live backend under memory pressure." />
+                <Tip text="On by default. Runs first so it always gets the browser; untick to skip it for this audit." />
               </div>
               <div className="checkbox-field-wrap">
                 <label className="checkbox-field">
                   <input type="checkbox" checked={toggles.enable_topic7_screenshots} onChange={() => setToggles((t) => ({ ...t, enable_topic7_screenshots: !t.enable_topic7_screenshots }))} />
-                  <span>Crawl for &amp; screenshot forms (Topic 7)</span>
+                  <span>Screenshot forms (Topic 7)</span>
                 </label>
-                <Tip text="Real-browser crawl across up to 30 pages - off by default for the same reason. Thin content analysis isn't affected either way." />
+                <Tip text="On by default. Forms are always detected; this adds screenshots from a light browser crawl (up to 10 pages) that stops safely if memory runs low. Untick to skip." />
               </div>
             </div>
           </div>

@@ -171,8 +171,8 @@ function statusWord(score: number | null): string {
   if (score === null) return "Not assessed";
   if (score >= 80) return "Strong";
   if (score >= 60) return "Good, room to improve";
-  if (score >= 40) return "Needs work";
-  return "Priority";
+  if (score >= 40) return "Room to grow";
+  return "Biggest opportunity";
 }
 
 // Topic names mid-sentence: lower-case, but keep "AI" and "Google" as they are.
@@ -191,22 +191,15 @@ function assessTopics(r: MasterAuditResults): TopicFinding[] {
     const points: string[] = [];
     const facts: string[] = [];
     const w = d?.wcag_accessibility;
-    if (w?.criteria) {
-      const c = w.criteria;
-      const applicable = c.passed + c.failed + c.inconclusive;
-      facts.push(`WCAG 2.2 standards met: ${c.passed} of ${applicable}`);
+    // Client-facing: no WCAG counts or criteria lists - a long list of
+    // technical failures alarms more than it informs. The detail lives in
+    // the dashboard / WCAG scanner for the team; the client gets the gist.
+    if (w) {
+      const wScore = w.score ?? null;
       points.push(
-        c.failed > 0
-          ? `We tested ${c.pages_tested ?? "a sample of"} pages against the ${applicable} WCAG 2.2 AA accessibility standards that apply to your site. It meets ${c.passed}, doesn't yet meet ${c.failed}, and ${c.inconclusive} need checking by hand. Unmet standards can stop disabled visitors using parts of the site.`
-          : `Your site meets every WCAG 2.2 AA standard our tests could decide, with ${c.inconclusive} left to check by hand.`
-      );
-    } else if (w) {
-      const severe = (w.by_impact?.critical ?? 0) + (w.by_impact?.serious ?? 0);
-      facts.push(`Accessibility score: ${Math.round(w.score)}/100`);
-      points.push(
-        severe > 0
-          ? `Our accessibility check found ${plural(severe, "serious problem")} that can stop disabled visitors using parts of the site, such as missing image descriptions or text that's hard to read.`
-          : "Our accessibility check didn't find any serious problems on the pages tested."
+        wScore !== null && wScore >= 80
+          ? "The site is in good shape for accessibility, with a few small improvements we can make so it works well for every visitor."
+          : "We've reviewed how easy the site is to use for everyone, including people using screen readers or keyboards. There are some improvements to make, and we'll take you through them."
       );
     }
     const g = d?.gdpr_compliance;
@@ -214,7 +207,7 @@ function assessTopics(r: MasterAuditResults): TopicFinding[] {
       facts.push(`Privacy & cookies: ${g.is_gdpr_compliant ? "compliant" : "gaps found"}`);
       if (!g.banner?.banner_detected) points.push("We couldn't find a cookie consent banner, which UK privacy rules expect.");
       else if (!g.banner.has_reject_button) points.push("The cookie banner doesn't offer an equally easy way to reject cookies, which the ICO expects.");
-      if (g.non_essential_preconsent_risk) points.push("Some tracking cookies load before visitors have agreed to them.");
+      if (g.non_essential_preconsent_risk) points.push("A few tracking tools start before visitors agree to cookies. This is usually a quick settings change.");
       const missing = [
         !g.policies?.privacy_policy && "a privacy policy",
         !g.policies?.cookie_policy && "a cookie policy",
@@ -233,10 +226,10 @@ function assessTopics(r: MasterAuditResults): TopicFinding[] {
       score,
       prio: prioFor(score),
       headline:
-        score === null ? "Not assessed this time" : score >= 80 ? "Usable and compliant, with a few things to tidy" : "Some visitors may struggle, and there are compliance gaps",
+        score === null ? "Not assessed this time" : score >= 80 ? "In good shape, with a few things to tidy" : "A few improvements will make the site easier for everyone to use",
       points,
       facts,
-      action: "Fix the serious accessibility problems first, then close any cookie and privacy gaps so the site meets UK rules.",
+      action: "Work through the accessibility improvements we'll share with your team, and tidy up cookie consent so the site follows UK guidance.",
       sources: r.topic1_technical?.sources ?? [],
     });
   }
@@ -512,20 +505,7 @@ function table(head: string[], rows: (string | number)[][], numericCols: number[
 function detailTables(r: MasterAuditResults, n: number): string {
   const parts: string[] = [];
   const h = (t: string) => `<h4>${esc(t)}</h4>`;
-  if (n === 1) {
-    const w = r.topic1_technical?.data?.wcag_accessibility;
-    if (w?.criteria && w.issues?.length)
-      parts.push(
-        h("WCAG 2.2 standards not yet met"),
-        table(
-          ["Standard", "Level", "Pages affected", "Instances"],
-          w.issues.map((i) => [`${i.code} ${i.description}`, (i.impact || "").replace("Level ", ""), fmtInt(i.pages ?? 0), fmtInt(i.occurrences ?? 0)]),
-          [2, 3]
-        )
-      );
-    else if (w?.issues?.length)
-      parts.push(h("Accessibility problems found"), table(["Problem", "Severity"], w.issues.slice(0, 15).map((i) => [i.description, i.impact])));
-  }
+  // n === 1: deliberately no accessibility tables in client reports.
   if (n === 2) {
     const v = r.topic2_performance?.data?.core_web_vitals;
     const row = (label: string, m?: number | null, d?: number | null, f: (x: number) => string = (x) => String(Math.round(x))) => [
@@ -660,7 +640,7 @@ function detailTables(r: MasterAuditResults, n: number): string {
 
 const ENGINE_NAMES: Record<string, string> = { chatgpt: "ChatGPT", gemini: "Gemini", claude: "Claude", sonar: "Perplexity", perplexity: "Perplexity", copilot: "Copilot" };
 
-const PRIO_LABEL: Record<Prio, string> = { first: "Fix first", next: "Fix next", keep: "Keep it up" };
+const PRIO_LABEL: Record<Prio, string> = { first: "Top priority", next: "Worth improving", keep: "Keep it up" };
 
 export async function buildClientReport(audit: MasterAuditResponse, opts: ClientReportOptions): Promise<string> {
   const theme = THEMES[opts.brand];
@@ -848,9 +828,9 @@ thead th{background:var(--dark);color:#fff;font-size:12.5px;letter-spacing:.06em
   </div>
   <div class="verdicts">
     <div class="v"><p class="q">Where you stand</p><p class="a">${composite ?? "–"}<small>/100 · ${esc(grade)}</small></p>
-      <div class="bar" role="img" aria-label="Of ${scored.length} areas assessed: ${counts.keep} strong, ${counts.next} room to improve, ${counts.first} need attention">
+      <div class="bar" role="img" aria-label="Of ${scored.length} areas assessed: ${counts.keep} strong, ${counts.next} room to improve, ${counts.first} top priority">
         ${counts.keep ? `<span style="flex:${counts.keep};background:var(--good)"></span>` : ""}${counts.next ? `<span style="flex:${counts.next};background:var(--mid)"></span>` : ""}${counts.first ? `<span style="flex:${counts.first};background:var(--bad)"></span>` : ""}</div>
-      <div class="keys"><span><i style="background:var(--good)"></i><b>${counts.keep}</b> strong</span><span><i style="background:var(--mid)"></i><b>${counts.next}</b> room to improve</span><span><i style="background:var(--bad)"></i><b>${counts.first}</b> need attention</span></div>
+      <div class="keys"><span><i style="background:var(--good)"></i><b>${counts.keep}</b> strong</span><span><i style="background:var(--mid)"></i><b>${counts.next}</b> room to improve</span><span><i style="background:var(--bad)"></i><b>${counts.first}</b> top priority</span></div>
       <p>${
         strengths.length
           ? `Your strongest area${strengths.length > 1 ? "s are" : " is"} ${listJoin(strengths.slice(0, 2).map((s) => inSentence(s.name)))}.`

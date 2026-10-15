@@ -12,6 +12,7 @@ import Topic5Paid from "./pages/Topic5Paid";
 import Topic6Local from "./pages/Topic6Local";
 import Topic7Content from "./pages/Topic7Content";
 import { pollAuditStatus, AuditJobNotFoundError } from "./api/client";
+import { saveRecentRun } from "./lib/recentRuns";
 import type { MasterAuditResponse, MasterAuditResults } from "./types/audit";
 
 // How often to poll GET /audit-status/:job_id while any topic is still
@@ -187,6 +188,12 @@ export default function App() {
     };
   }, [audit?.job_id, audit?.complete]);
 
+  // Save every finished audit to this browser's "Recent runs" list
+  // (intake screen 1) - the backend only keeps jobs in memory.
+  useEffect(() => {
+    if (audit?.complete) saveRecentRun(audit);
+  }, [audit?.complete, audit?.job_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const renderTab = () => {
     if (!audit) return null;
     const results = audit.master_audit_results;
@@ -204,7 +211,7 @@ export default function App() {
       case "topic5":
         return <Topic5Paid envelope={results.topic5_paid_visibility} />;
       case "topic6":
-        return <Topic6Local envelope={results.topic6_local_visibility} />;
+        return <Topic6Local envelope={results.topic6_local_visibility} providedInputs={audit.provided_inputs} />;
       case "topic7":
         return <Topic7Content envelope={results.topic7_content_quality} />;
       default:

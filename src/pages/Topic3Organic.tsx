@@ -6,6 +6,7 @@ import PieChart from "../components/charts/PieChart";
 import BarChart from "../components/charts/BarChart";
 import LineChart from "../components/charts/LineChart";
 import { fmtInt, fmtPercent, fmtDash } from "../lib/format";
+import SourcesPanel from "../components/SourcesPanel";
 
 export default function Topic3Organic({ envelope }: { envelope: Envelope<Topic3Data> }) {
   const d = envelope.data;
@@ -61,7 +62,7 @@ export default function Topic3Organic({ envelope }: { envelope: Envelope<Topic3D
 
   return (
     <div className="stack">
-      {envelope.warnings.length > 0 && <div className="status-banner warn">{envelope.warnings.join(" · ")}</div>}
+      <SourcesPanel envelope={envelope} />
 
       <div className="grid grid-4">
         <div className="stat-card">

@@ -7,6 +7,7 @@ import DataTable, { Column } from "../components/ui/DataTable";
 import DistributionBar from "../components/charts/DistributionBar";
 import { fmtInt, truncate, hostnameOf } from "../lib/format";
 import type { WcagIssue, CookieDetected, HtmlValidationErrorRow } from "../types/audit";
+import SourcesPanel from "../components/SourcesPanel";
 
 export default function Topic1Accessibility({ envelope }: { envelope: Envelope<Topic1Data> }) {
   const d = envelope.data;
@@ -78,9 +79,7 @@ export default function Topic1Accessibility({ envelope }: { envelope: Envelope<T
 
   return (
     <div className="stack">
-      {envelope.warnings.length > 0 && (
-        <div className="status-banner warn">{envelope.warnings.join(" · ")}</div>
-      )}
+      <SourcesPanel envelope={envelope} />
 
       <Card sectionLabel="Technical Standards">
         <div className="grid grid-3">

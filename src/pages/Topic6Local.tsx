@@ -8,8 +8,26 @@ import DistributionBar from "../components/charts/DistributionBar";
 import { resolveAssetUrl } from "../api/client";
 import type { MapPackKeywordRow } from "../types/audit";
 import ZoomableImage from "../components/ui/ZoomableImage";
+import SourcesPanel from "../components/SourcesPanel";
 
-export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Data> }) {
+// Fallback when Topic 6 stopped before recording its inputs (e.g. no
+// BrightLocal data) - reconstruct the three values from what was submitted.
+function inputsFromProvided(p?: Record<string, string>) {
+  const clean = (v?: string) => (v && !v.startsWith("N/A") ? v : null);
+  return [
+    { key: "business_name", label: "Business name", value: clean(p?.business_name), source: "" },
+    { key: "target_location", label: "Location", value: clean(p?.target_location), source: "" },
+    { key: "core_offering", label: "Core offering", value: clean(p?.core_offering), source: "" },
+  ];
+}
+
+export default function Topic6Local({
+  envelope,
+  providedInputs,
+}: {
+  envelope: Envelope<Topic6Data>;
+  providedInputs?: Record<string, string>;
+}) {
   const d = envelope.data;
   const citations = d.citations;
   const mapPack = d.map_pack;
@@ -34,9 +52,24 @@ export default function Topic6Local({ envelope }: { envelope: Envelope<Topic6Dat
     },
   ];
 
+  const auditInputs = d.audit_inputs ?? inputsFromProvided(providedInputs);
+
   return (
     <div className="stack">
-      {envelope.warnings.length > 0 && <div className="status-banner warn">{envelope.warnings.join(" · ")}</div>}
+      <div className="card audit-inputs">
+        <p className="sources-heading">Inputs used for this topic</p>
+        <div className="audit-inputs-grid">
+          {auditInputs.map((i) => (
+            <div key={i.key} className="audit-input">
+              <span className="audit-input-label">{i.label}</span>
+              <span className="audit-input-value">{i.value || "Not found"}</span>
+              {i.source && <span className="audit-input-source">{i.source}</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <SourcesPanel envelope={envelope} />
 
       <div className="grid grid-4">
         <div className="stat-card">

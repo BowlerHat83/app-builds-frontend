@@ -27,6 +27,40 @@ export interface AuditFormFields {
   // in topic7/aggregate.py for the full history.
   enable_topic6_screenshot?: boolean;
   enable_topic7_screenshots?: boolean;
+  // Where business_name / target_location / core_offering came from
+  // ("BrightLocal Citation Tracker report", "Edited by user", ...) - shown
+  // on the Topic 6 tab as an accountability measure.
+  input_sources?: Partial<Record<"business_name" | "target_location" | "core_offering", string>>;
+}
+
+export interface DetectedField {
+  value: string | null;
+  source: string | null;
+}
+
+export interface DetectResult {
+  target_url: string;
+  domain: string;
+  business_name: DetectedField;
+  target_location: DetectedField;
+  core_offering: DetectedField;
+  brightlocal_report: { report_id: number; name: string; last_run: string | null } | null;
+}
+
+// Intake screen 1 -> 2: infer business name, location and core offering
+// from the URL. Never throws - on any failure it returns empty values so
+// the person can simply type them into the override boxes.
+export async function detectBusiness(targetUrl: string): Promise<DetectResult> {
+  const empty: DetectedField = { value: null, source: null };
+  try {
+    const form = new FormData();
+    form.append("target_url", targetUrl);
+    const res = await fetch(`${API_BASE_URL}/detect-business`, { method: "POST", body: form });
+    if (!res.ok) throw new Error(String(res.status));
+    return (await res.json()) as DetectResult;
+  } catch {
+    return { target_url: targetUrl, domain: "", business_name: empty, target_location: empty, core_offering: empty, brightlocal_report: null };
+  }
 }
 
 export interface AuditFormFiles {
@@ -164,6 +198,7 @@ export async function startAuditJob(fields: AuditFormFields, files: AuditFormFil
   // one less thing to keep in sync between the two.
   form.append("enable_topic6_screenshot", String(!!fields.enable_topic6_screenshot));
   form.append("enable_topic7_screenshots", String(!!fields.enable_topic7_screenshots));
+  if (fields.input_sources) form.append("input_sources", JSON.stringify(fields.input_sources));
 
   (Object.keys(files) as (keyof AuditFormFiles)[]).forEach((key) => {
     const file = files[key];
@@ -260,7 +295,7 @@ export function resolveAssetUrl(relativePath?: string | null): string | null {
 // Which CSV upload slots the backend can fill automatically from an API
 // (because the relevant API key is configured on the server). Returns {} on
 // any failure, so the intake screen simply behaves as if no APIs exist.
-export async function fetchIntegrationStatus(): Promise<Partial<Record<keyof AuditFormFiles, boolean>>> {
+export async function fetchIntegrationStatus(): Promise<Partial<Record<keyof AuditFormFiles, boolean | "estimate">>> {
   try {
     const res = await fetch(`${API_BASE_URL}/integrations`);
     if (!res.ok) return {};

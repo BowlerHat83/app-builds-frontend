@@ -4,6 +4,11 @@ import { SLOTS, SlotKey } from "./fileClassifier";
 export interface ReadinessPart {
   label: string;
   met: boolean;
+  // true when the slot is only covered by a lower-fidelity fallback
+  // (e.g. Topic 5's Ahrefs paid-search estimate) - the topic card shows
+  // amber rather than green for these.
+  estimate?: boolean;
+  via?: "csv" | "api" | "estimate" | "live";
 }
 
 export interface TopicReadiness {
@@ -24,7 +29,7 @@ const TOPIC_DEFS: { key: string; label: string; fileSlots: SlotKey[]; hasLiveChe
   { key: "topic7", label: "Topic 7: Content Quality", fileSlots: ["screaming_frog_csv"], hasLiveCheck: true },
 ];
 
-export type ApiSlots = Partial<Record<SlotKey, boolean>>;
+export type ApiSlots = Partial<Record<SlotKey, boolean | "estimate">>;
 
 export function computeTopicReadiness(fields: AuditFormFields, files: AuditFormFiles, apiSlots: ApiSlots = {}): TopicReadiness[] {
   const urlFilled = Boolean(fields.target_url && fields.target_url.trim());
@@ -32,15 +37,17 @@ export function computeTopicReadiness(fields: AuditFormFields, files: AuditFormF
   return TOPIC_DEFS.map((topic) => {
     const parts: ReadinessPart[] = [];
     if (topic.hasLiveCheck) {
-      parts.push({ label: "Target URL (live checks)", met: urlFilled });
+      parts.push({ label: "Live checks on the site", met: urlFilled, via: "live" });
     }
     topic.fileSlots.forEach((slotKey) => {
       const def = SLOTS.find((s) => s.key === slotKey);
       const label = def?.label ?? slotKey;
       if (files[slotKey]) {
-        parts.push({ label, met: true });
+        parts.push({ label, met: true, via: "csv" });
+      } else if (apiSlots[slotKey] === "estimate") {
+        parts.push({ label: `${label} (Ahrefs estimate)`, met: true, estimate: true, via: "estimate" });
       } else if (apiSlots[slotKey]) {
-        parts.push({ label: `${label} (auto via API)`, met: true });
+        parts.push({ label: `${label} (auto via API)`, met: true, via: "api" });
       } else {
         parts.push({ label, met: false });
       }

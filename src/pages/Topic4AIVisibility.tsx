@@ -4,6 +4,7 @@ import Tip from "../components/ui/Tip";
 import DataTable, { Column } from "../components/ui/DataTable";
 import PieChart from "../components/charts/PieChart";
 import { fmtInt, truncate } from "../lib/format";
+import SourcesPanel from "../components/SourcesPanel";
 
 export default function Topic4AIVisibility({ envelope }: { envelope: Envelope<Topic4Data>; targetUrl: string }) {
   const d = envelope.data;
@@ -31,7 +32,7 @@ export default function Topic4AIVisibility({ envelope }: { envelope: Envelope<To
   const searchTerms = d.top_search_terms;
   return (
     <div className="stack">
-      {envelope.warnings.length > 0 && <div className="status-banner warn">{envelope.warnings.join(" · ")}</div>}
+      <SourcesPanel envelope={envelope} />
 
       <Card
         sectionLabel="Main Visibility"

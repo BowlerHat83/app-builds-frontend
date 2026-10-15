@@ -13,11 +13,27 @@ export type EnvelopeStatus = "success" | "partial" | "error" | "pending" | "inco
 // score, an asterisk, and an explanatory banner - see App.tsx's
 // AuditJobNotFoundError handling.
 
+export interface SourceItem {
+  name: string;
+  kind: "csv" | "api" | "live" | "estimate";
+  detail: string;
+}
+
+export interface ExtraItem {
+  name: string;
+  state: "included" | "missing" | "off" | "unavailable";
+  detail: string;
+}
+
 export interface Envelope<T> {
   status: EnvelopeStatus;
   topic: string;
   data: T;
   warnings: string[];
+  // Which data sources fed this topic, and which optional inputs/features
+  // were part of this run - rendered by components/SourcesPanel.tsx.
+  sources?: SourceItem[];
+  extras?: ExtraItem[];
 }
 
 // ---------- Topic 1: Technical, Security & Standards ----------
@@ -520,6 +536,9 @@ export interface Topic6Data {
   // audit run didn't supply one, in which case map_pack.keyword_breakdown
   // falls back to branded terms instead (see the envelope warning).
   core_offering: string | null;
+  // The three inputs Topic 6 ran with and where each came from (detected
+  // from BrightLocal / the website / Google Business Profile, or edited).
+  audit_inputs?: { key: string; label: string; value: string | null; source: string }[];
   citations: CitationsBlock | null;
   map_pack: MapPackBlock | null;
   reviews: ReviewsBlock | null;

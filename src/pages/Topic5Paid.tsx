@@ -4,6 +4,7 @@ import DataTable, { Column } from "../components/ui/DataTable";
 import BarChart from "../components/charts/BarChart";
 import Tip from "../components/ui/Tip";
 import { fmtInt, fmtCurrencyGBP } from "../lib/format";
+import SourcesPanel from "../components/SourcesPanel";
 
 export default function Topic5Paid({ envelope }: { envelope: Envelope<Topic5Data> }) {
   const d = envelope.data;
@@ -24,7 +25,7 @@ export default function Topic5Paid({ envelope }: { envelope: Envelope<Topic5Data
 
   return (
     <div className="stack">
-      {envelope.warnings.length > 0 && <div className="status-banner warn">{envelope.warnings.join(" · ")}</div>}
+      <SourcesPanel envelope={envelope} />
 
       <div className="grid grid-4">
         <div className="stat-card">

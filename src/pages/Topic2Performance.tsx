@@ -5,6 +5,7 @@ import Badge from "../components/ui/Badge";
 import Tip from "../components/ui/Tip";
 import DistributionBar from "../components/charts/DistributionBar";
 import { fmtInt, fmtMs } from "../lib/format";
+import SourcesPanel from "../components/SourcesPanel";
 
 function cwvColor(ms: number | null, good: number, poor: number): string {
   if (ms === null) return "var(--text-tertiary)";
@@ -127,7 +128,7 @@ export default function Topic2Performance({ envelope }: { envelope: Envelope<Top
 
   return (
     <div className="stack">
-      {envelope.warnings.length > 0 && <div className="status-banner warn">{envelope.warnings.join(" · ")}</div>}
+      <SourcesPanel envelope={envelope} />
       {runWarnings.length > 0 && (
         <div className="status-banner info">
           Lighthouse note: {runWarnings.join(" ")}

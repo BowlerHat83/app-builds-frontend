@@ -7,6 +7,7 @@ import DataTable, { Column } from "../components/ui/DataTable";
 import { fmtInt, fmtPercent, truncate } from "../lib/format";
 import { resolveAssetUrl } from "../api/client";
 import ZoomableImage from "../components/ui/ZoomableImage";
+import SourcesPanel from "../components/SourcesPanel";
 
 export default function Topic7Content({ envelope }: { envelope: Envelope<Topic7Data> }) {
   const d = envelope.data;
@@ -35,7 +36,7 @@ export default function Topic7Content({ envelope }: { envelope: Envelope<Topic7D
 
   return (
     <div className="stack">
-      {envelope.warnings.length > 0 && <div className="status-banner warn">{envelope.warnings.join(" · ")}</div>}
+      <SourcesPanel envelope={envelope} />
 
       <div className="grid grid-4">
         <div className="stat-card">

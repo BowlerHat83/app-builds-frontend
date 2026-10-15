@@ -287,7 +287,7 @@ export async function pollAuditStatus(jobId: string): Promise<MasterAuditRespons
 // are served from different origins.
 export function resolveAssetUrl(relativePath?: string | null): string | null {
   if (!relativePath) return null;
-  if (/^https?:\/\//i.test(relativePath)) return relativePath;
+  if (/^(https?:\/\/|data:)/i.test(relativePath)) return relativePath;
   return `${API_BASE_URL}${relativePath.startsWith("/") ? "" : "/"}${relativePath}`;
 }
 

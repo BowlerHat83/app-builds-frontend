@@ -6,6 +6,11 @@ import Tip from "../components/ui/Tip";
 import { fmtInt, fmtCurrencyGBP } from "../lib/format";
 import SourcesPanel from "../components/SourcesPanel";
 
+function shareLabel(shown: number, checked: number): string {
+  const s = `${shown} competitor${shown === 1 ? "" : "s"} with paid activity`;
+  return checked > shown ? `${s} (of ${checked} checked)` : s;
+}
+
 export default function Topic5Paid({ envelope }: { envelope: Envelope<Topic5Data> }) {
   const d = envelope.data;
   const kw = d.keywords;
@@ -59,7 +64,7 @@ export default function Topic5Paid({ envelope }: { envelope: Envelope<Topic5Data
       </div>
 
       <Card
-        sectionLabel={`Competitor Share Breakdown${share ? ` · ${share.total_competitors_analyzed} competitors analyzed` : ""}`}
+        sectionLabel={`Competitor Share Breakdown${share ? ` · ${shareLabel(share.competitor_share_breakdown?.length ?? 0, share.total_competitors_analyzed)}` : ""}`}
         right={<Tip text="Estimated monthly ad budget for each competitor domain, from the PPC competitor-overlap export." />}
       >
         <BarChart data={competitorBars} color="var(--accent-orange)" valueFormatter={(v) => fmtCurrencyGBP(v)} />

@@ -55,13 +55,16 @@ function buildInsightParagraph(results: MasterAuditResults): string {
   const t4 = results.topic4_ai_visibility.data;
   const t5 = results.topic5_paid_visibility.data;
   const t6 = results.topic6_local_visibility.data;
-  if (!t3.backlinks_summary && !t3.top_keywords) missing.push("Organic Visibility (Ahrefs)");
-  if (!t4.engine_visibility) missing.push("AI Visibility");
-  if (!t5.keywords && !t5.competitor_share) missing.push("Paid Visibility (PPC)");
-  if (!t6.citations) missing.push("Local citations (BrightLocal)");
+  // A topic that didn't finish (backend restart) isn't "not supplied" - it's
+  // covered by the asterisk note instead, so leave it out of this sentence.
+  const finished = (s: string) => s !== "incomplete" && s !== "pending";
+  if (finished(results.topic3_organic_visibility.status) && !t3.backlinks_summary && !t3.top_keywords) missing.push("Organic Visibility (Ahrefs)");
+  if (finished(results.topic4_ai_visibility.status) && !t4.engine_visibility) missing.push("AI Visibility");
+  if (finished(results.topic5_paid_visibility.status) && !t5.keywords && !t5.competitor_share) missing.push("Paid Visibility (PPC)");
+  if (finished(results.topic6_local_visibility.status) && !t6.citations) missing.push("Local citations (BrightLocal)");
 
   const omission = missing.length
-    ? ` ${missing.join(", ")} ${missing.length === 1 ? "wasn't" : "weren't"} supplied for this audit, so ${
+    ? ` ${missing.join(", ")} ${missing.length === 1 ? "wasn't" : "weren't"} available for this audit, so ${
         missing.length === 1 ? "it's" : "they're"
       } shown with partial or no data on ${missing.length === 1 ? "its" : "their"} tab${missing.length === 1 ? "" : "s"} below — and, being N/A rather than a 0, excluded from the composite score entirely rather than dragging it down.`
     : "";

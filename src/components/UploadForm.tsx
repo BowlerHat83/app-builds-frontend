@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AuditFormFields, AuditFormFiles } from "../api/client";
 import type { MasterAuditResponse } from "../types/audit";
-import { startAuditJob } from "../api/client";
+import { startAuditJob, fetchIntegrationStatus } from "../api/client";
 import { classifyFile, slotDef, SLOTS, SlotKey } from "../lib/fileClassifier";
-import { computeTopicReadiness, computeMissingFileInputs } from "../lib/topicReadiness";
+import { computeTopicReadiness, computeMissingFileInputs, ApiSlots } from "../lib/topicReadiness";
 import TopicReadinessGrid from "./TopicReadinessGrid";
 import InputGuideModal from "./layout/InputGuideModal";
 import MissingInputsModal from "./MissingInputsModal";
@@ -34,6 +34,12 @@ export default function UploadForm({ onResult }: UploadFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [showMissingModal, setShowMissingModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Slots the backend can fill from an API when no CSV is uploaded (e.g. BrightLocal).
+  const [apiSlots, setApiSlots] = useState<ApiSlots>({});
+
+  useEffect(() => {
+    void fetchIntegrationStatus().then(setApiSlots);
+  }, []);
 
   const updateField = (key: keyof AuditFormFields, value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -119,7 +125,7 @@ export default function UploadForm({ onResult }: UploadFormProps) {
     // Give the owner one last checkpoint before the audit locks in, if any
     // topic's CSVs are incomplete - rather than let them discover the gap
     // only after the results come back.
-    if (computeMissingFileInputs(files).length > 0) {
+    if (computeMissingFileInputs(files, apiSlots).length > 0) {
       setShowMissingModal(true);
       return;
     }
@@ -131,8 +137,9 @@ export default function UploadForm({ onResult }: UploadFormProps) {
     void runAudit();
   };
 
-  const readiness = computeTopicReadiness(fields, files);
+  const readiness = computeTopicReadiness(fields, files, apiSlots);
   const filledSlots = SLOTS.filter((s) => files[s.key]);
+  const apiOnlySlots = SLOTS.filter((s) => !files[s.key] && apiSlots[s.key]);
 
   return (
     <div className="intake-wrap">
@@ -239,8 +246,13 @@ export default function UploadForm({ onResult }: UploadFormProps) {
               <input ref={fileInputRef} type="file" accept=".csv" multiple onChange={handleBrowsePick} />
             </div>
 
-            {filledSlots.length > 0 && (
+            {(filledSlots.length > 0 || apiOnlySlots.length > 0) && (
               <div className="slot-chip-row">
+                {apiOnlySlots.map((s) => (
+                  <span key={s.key} className="slot-chip filled" title="No upload needed - pulled automatically from the API. Uploading a CSV overrides it.">
+                    ⚡ {s.label} (auto via API)
+                  </span>
+                ))}
                 {filledSlots.map((s) => (
                   <span key={s.key} className="slot-chip filled">
                     ✓ {s.label}
@@ -304,7 +316,7 @@ export default function UploadForm({ onResult }: UploadFormProps) {
 
       {showMissingModal && (
         <MissingInputsModal
-          missing={computeMissingFileInputs(files)}
+          missing={computeMissingFileInputs(files, apiSlots)}
           onProceed={handleProceedAnyway}
           onReturn={() => setShowMissingModal(false)}
         />

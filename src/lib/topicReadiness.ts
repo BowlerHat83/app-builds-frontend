@@ -24,7 +24,9 @@ const TOPIC_DEFS: { key: string; label: string; fileSlots: SlotKey[]; hasLiveChe
   { key: "topic7", label: "Topic 7: Content Quality", fileSlots: ["screaming_frog_csv"], hasLiveCheck: true },
 ];
 
-export function computeTopicReadiness(fields: AuditFormFields, files: AuditFormFiles): TopicReadiness[] {
+export type ApiSlots = Partial<Record<SlotKey, boolean>>;
+
+export function computeTopicReadiness(fields: AuditFormFields, files: AuditFormFiles, apiSlots: ApiSlots = {}): TopicReadiness[] {
   const urlFilled = Boolean(fields.target_url && fields.target_url.trim());
 
   return TOPIC_DEFS.map((topic) => {
@@ -34,7 +36,14 @@ export function computeTopicReadiness(fields: AuditFormFields, files: AuditFormF
     }
     topic.fileSlots.forEach((slotKey) => {
       const def = SLOTS.find((s) => s.key === slotKey);
-      parts.push({ label: def?.label ?? slotKey, met: Boolean(files[slotKey]) });
+      const label = def?.label ?? slotKey;
+      if (files[slotKey]) {
+        parts.push({ label, met: true });
+      } else if (apiSlots[slotKey]) {
+        parts.push({ label: `${label} (auto via API)`, met: true });
+      } else {
+        parts.push({ label, met: false });
+      }
     });
     const metCount = parts.filter((p) => p.met).length;
     return { key: topic.key, label: topic.label, parts, metCount, totalCount: parts.length };
@@ -54,11 +63,11 @@ export interface MissingTopicInputs {
 // submission without a URL). This only reports missing CSV slots, grouped
 // by the topic(s) each one feeds, so the popup can say exactly what's
 // absent rather than a vague "some data is missing".
-export function computeMissingFileInputs(files: AuditFormFiles): MissingTopicInputs[] {
+export function computeMissingFileInputs(files: AuditFormFiles, apiSlots: ApiSlots = {}): MissingTopicInputs[] {
   return TOPIC_DEFS.filter((topic) => topic.fileSlots.length > 0)
     .map((topic) => {
       const missingFiles = topic.fileSlots
-        .filter((slotKey) => !files[slotKey])
+        .filter((slotKey) => !files[slotKey] && !apiSlots[slotKey])
         .map((slotKey) => SLOTS.find((s) => s.key === slotKey)?.label ?? slotKey);
       return { key: topic.key, label: topic.label, missingFiles };
     })

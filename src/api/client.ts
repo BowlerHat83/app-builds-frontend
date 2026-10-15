@@ -255,3 +255,17 @@ export function resolveAssetUrl(relativePath?: string | null): string | null {
   if (/^https?:\/\//i.test(relativePath)) return relativePath;
   return `${API_BASE_URL}${relativePath.startsWith("/") ? "" : "/"}${relativePath}`;
 }
+
+
+// Which CSV upload slots the backend can fill automatically from an API
+// (because the relevant API key is configured on the server). Returns {} on
+// any failure, so the intake screen simply behaves as if no APIs exist.
+export async function fetchIntegrationStatus(): Promise<Partial<Record<keyof AuditFormFiles, boolean>>> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/integrations`);
+    if (!res.ok) return {};
+    return (await res.json()) ?? {};
+  } catch {
+    return {};
+  }
+}

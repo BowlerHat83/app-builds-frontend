@@ -15,7 +15,9 @@ const BRAND_ORDER: BrandKey[] = ["bowlerhat", "alltru", "cobrand", "unbranded"];
 // self-contained HTML file; printing it from the browser gives a clean PDF.
 export default function DownloadMenu({ audit }: DownloadMenuProps) {
   const t6Name = audit.master_audit_results?.topic6_local_visibility?.data?.business_name;
-  const defaultClient = t6Name || hostnameOf(audit.target_url)?.replace(/^www\./, "") || "";
+  const givenName = audit.provided_inputs?.business_name;
+  const defaultClient =
+    t6Name || (givenName && !givenName.startsWith("N/A") ? givenName : "") || hostnameOf(audit.target_url)?.replace(/^www\./, "") || "";
 
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);

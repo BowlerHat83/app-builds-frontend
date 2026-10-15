@@ -276,7 +276,13 @@ function assessTopics(r: MasterAuditResults): TopicFinding[] {
       score,
       prio: prioFor(score),
       headline:
-        score === null ? "Not assessed this time" : score >= 80 ? "Fast and well set up for search engines" : "The site is slower than it should be, especially on phones",
+        score === null
+          ? "Not assessed this time"
+          : score >= 80
+          ? (mob?.lcp_ms ?? 0) > 4000
+            ? "Well set up for search engines, with room to speed up on phones"
+            : "Fast and well set up for search engines"
+          : "The site is slower than it should be, especially on phones",
       points,
       facts,
       action: "Speed up the mobile site (images and scripts are the usual culprits), fix pages Google can't show, and fill in missing titles and descriptions.",
@@ -298,7 +304,7 @@ function assessTopics(r: MasterAuditResults): TopicFinding[] {
       facts.push(`First-page search terms: ${fmtInt(kp.top_10_count)}`);
     }
     const clicks = d?.traffic_impressions?.metrics?.estimated_organic_clicks;
-    if (clicks != null) facts.push(`Estimated visits from Google: ${fmtInt(clicks)}/month`);
+    if (clicks) facts.push(`Estimated visits from Google: ${fmtInt(clicks)}/month`);
     const bl = d?.backlinks_summary;
     if (bl) {
       facts.push(`Websites linking to you: ${fmtInt(bl.unique_referring_domains)}`);
@@ -400,7 +406,7 @@ function assessTopics(r: MasterAuditResults): TopicFinding[] {
             : "You're not running paid search, but competitors are"
           : score >= 80
           ? "You're competing well in paid search"
-          : "Competitors are out-advertising you",
+          : "Bigger competitors are out-spending you on ads",
       points,
       facts,
       action: "If paid search fits your goals, a focused Google Ads campaign on your most valuable services can win customers while organic rankings build.",
@@ -640,6 +646,26 @@ function detailTables(r: MasterAuditResults, n: number): string {
 
 const ENGINE_NAMES: Record<string, string> = { chatgpt: "ChatGPT", gemini: "Gemini", claude: "Claude", sonar: "Perplexity", perplexity: "Perplexity", copilot: "Copilot" };
 
+const NUMBER_WORDS: Record<number, string> = { 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six" };
+
+// Client-facing tool names: no "CSV", "API" or engine names.
+function friendlySource(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("ahrefs")) return "Ahrefs";
+  if (n.includes("waikay")) return "Waikay";
+  if (n.includes("spyfu")) return "SpyFu";
+  if (n.includes("screaming frog")) return "Screaming Frog";
+  if (n.includes("pagespeed") || n.includes("lighthouse")) return "Google PageSpeed Insights";
+  if (n.includes("brightlocal")) return "BrightLocal";
+  if (n.includes("serpapi") || n.includes("google maps")) return "Google Maps";
+  if (n.includes("wcag") || n.includes("accessib")) return "accessibility testing";
+  if (n.includes("cookie") || n.includes("gdpr")) return "privacy and cookie checks";
+  return "live checks of your website";
+}
+function friendlySources(sources: { name: string }[]): string[] {
+  return Array.from(new Set(sources.map((s) => friendlySource(s.name))));
+}
+
 const PRIO_LABEL: Record<Prio, string> = { first: "Top priority", next: "Worth improving", keep: "Keep it up" };
 
 export async function buildClientReport(audit: MasterAuditResponse, opts: ClientReportOptions): Promise<string> {
@@ -719,9 +745,8 @@ export async function buildClientReport(audit: MasterAuditResponse, opts: Client
     ? logos.map((l) => `<img class="bh-logo" src="${l.src}" alt="${esc(l.alt)}">`).join('<span class="logo-x">×</span>')
     : `<span class="bh-word">${esc(preparedBy || "Website audit")}</span>`;
 
-  const sourceNames = Array.from(
-    new Set(topics.flatMap((t) => t.sources.map((s) => s.name.replace(/\s*\(.*\)$/, ""))))
-  );
+  const GENERIC = new Set(["live checks of your website", "accessibility testing", "privacy and cookie checks"]);
+  const sourceNames = friendlySources(topics.flatMap((t) => t.sources)).filter((s) => !GENERIC.has(s));
 
   const themeHtml = (t: TopicFinding) => `<li class="theme"><span class="prio p-${t.prio}">${PRIO_LABEL[t.prio as Prio]}</span><div class="body">
         <p class="tname">${esc(t.name)} · <b>${t.score}</b>/100</p>
@@ -748,8 +773,8 @@ export async function buildClientReport(audit: MasterAuditResponse, opts: Client
       .map((t) => {
         const tables = detailTables(r, t.n);
         if (t.score === null && !tables) return "";
-        return `<div class="detail"><h3>${t.n}. ${esc(t.name)}${t.score !== null ? ` <span class="ds">${t.score}/100</span>` : ""}</h3>${tables || '<p class="small">No further detail for this topic.</p>'}${
-          t.sources.length ? `<p class="small">Data: ${esc(t.sources.map((s) => s.name).join(", "))}</p>` : ""
+        return `<div class="detail"><h3>${t.n}. ${esc(t.name)}${t.score !== null ? ` <span class="ds">${t.score}/100</span>` : ""}</h3>${tables}${
+          t.sources.length ? `<p class="small">Data: ${esc(listJoin(friendlySources(t.sources)))}</p>` : ""
         }</div>`;
       })
       .join("")}</section>`
@@ -824,7 +849,7 @@ thead th{background:var(--dark);color:#fff;font-size:12.5px;letter-spacing:.06em
   <div class="lede">
     <p class="eyebrow">${esc(site)}</p>
     <h1 id="doc-h">How well is your website working for you?</h1>
-    <p>We audited your website across ${scored.length === 7 ? "seven" : `${scored.length} of seven`} areas that decide whether customers find you and get in touch: accessibility, speed, Google search, AI search, paid search, local search and content. This ${opts.kind === "full" ? "report" : "summary"} covers where you stand, where to focus, and what we recommend doing next.</p>
+    <p>We audited your website across ${scored.length === 7 ? "seven" : `${NUMBER_WORDS[scored.length] ?? scored.length} of seven`} areas that decide whether customers find you and get in touch: accessibility, speed, Google search, AI search, paid search, local search and content. This ${opts.kind === "full" ? "report" : "summary"} covers where you stand, where to focus, and what we recommend doing next.</p>
   </div>
   <div class="verdicts">
     <div class="v"><p class="q">Where you stand</p><p class="a">${composite ?? "–"}<small>/100 · ${esc(grade)}</small></p>
